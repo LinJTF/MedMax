@@ -67,6 +67,14 @@ class BaseScraper:
         with open(self.data_dir / "failed_urls.txt", "w") as f:
             f.write("\n".join(self.failed_urls))
 
+    def add_processed_url(self, url: str):
+        self.processed_urls.add(url)
+        self.save_progress()
+
+    def add_failed_url(self, url: str):
+        self.failed_urls.add(url)
+        self.save_progress()
+
     def _clean_text(self, text: str) -> str:
         """Clean and normalize text"""
         if not text:
