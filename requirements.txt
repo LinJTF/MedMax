@@ -6,3 +6,9 @@ datasets>=3.6.0
 lxml>=4.9.0
 qdrant-client>=1.7.0
 openai>=1.3.0
+
+# RAG dependencies
+llama-index
+llama-index-vector-stores-qdrant
+llama-index-embeddings-openai
+llama-index-llms-openai
