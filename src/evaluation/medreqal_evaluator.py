@@ -32,7 +32,7 @@ class MedREQALEvaluator:
         
     def setup_rag_system(self):
         """Setup RAG system for evaluation."""
-        print("🚀 Setting up RAG system for MedREQAL evaluation...")
+        print("Setting up RAG system for MedREQAL evaluation...")
         
         # Configure global settings
         configure_global_settings()
@@ -60,7 +60,7 @@ class MedREQALEvaluator:
     
     def load_medreqal_data(self, csv_path: str) -> pd.DataFrame:
         """Load MedREQAL dataset from CSV."""
-        print(f"📁 Loading MedREQAL data from {csv_path}")
+        print(f"Loading MedREQAL data from {csv_path}")
         
         try:
             df = pd.read_csv(csv_path)

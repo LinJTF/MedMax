@@ -55,7 +55,7 @@ def setup_vector_store(
         client=client,
     )
     
-    print(f"✅ Vector store configured for collection: {collection_name}")
+    print(f"Vector store configured for collection: {collection_name}")
     return vector_store
 
 

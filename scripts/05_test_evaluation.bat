@@ -23,7 +23,7 @@ python -m src.evaluation.main ^
     --engine_type "standard" ^
     --limit 10 ^
     --delay 0.5 ^
-    --baseline_accuracy 0.65
+    --baseline_accuracy 0.92
 
 echo.
 echo Test evaluation completed!
