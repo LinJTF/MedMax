@@ -60,6 +60,6 @@ def ensure_collection_exists(client: QdrantClient, collection_name: str, vector_
     """Ensure the collection exists, create if it doesn't."""
     if not collection_exists(client, collection_name):
         create_collection(client, collection_name, vector_size)
-        print(f"✅ Created collection: {collection_name}")
+        print(f"Created collection: {collection_name}")
     else:
-        print(f"📦 Collection already exists: {collection_name}")
+        print(f"Collection already exists: {collection_name}")

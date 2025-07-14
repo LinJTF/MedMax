@@ -23,13 +23,13 @@ def populate_qdrant(
     print(f"Collection name: {collection_name}")
     print(f"Data source: {jsonl_path}")
     if limit:
-        print(f"🧪 TEST MODE: Limited to {limit} records")
+        print(f"TEST MODE: Limited to {limit} records")
     if force_reindex:
-        print(f"🔄 FORCE REINDEX: Will recreate collection even if data exists")
+        print(f"FORCE REINDEX: Will recreate collection even if data exists")
     
     # Check if data file exists
     if not os.path.exists(jsonl_path):
-        print(f"❌ Error: Data file not found at {jsonl_path}")
+        print(f"Error: Data file not found at {jsonl_path}")
         return False
     
     # Setup Qdrant client
@@ -37,12 +37,12 @@ def populate_qdrant(
     try:
         client = setup_qdrant_client()
     except Exception as e:
-        print(f"❌ Failed to connect to Qdrant: {e}")
+        print(f"Failed to connect to Qdrant: {e}")
         return False
     
     # Check if collection already has data (unless force reindex)
     if not force_reindex and collection_has_data(client, collection_name):
-        print(f"✅ Collection '{collection_name}' already has data!")
+        print(f"Collection '{collection_name}' already has data!")
         print("Use --force-reindex flag to recreate the collection.")
         return True
     
@@ -51,7 +51,7 @@ def populate_qdrant(
     pubmed_records = load_pubmed_data(jsonl_path, limit=limit)
     
     if not pubmed_records:
-        print("❌ No valid records found. Exiting.")
+        print("No valid records found. Exiting.")
         return False
     
     # Format data for embedding
@@ -63,7 +63,7 @@ def populate_qdrant(
     try:
         embeddings = generate_openai_embeddings(texts)
     except Exception as e:
-        print(f"❌ Failed to generate embeddings: {e}")
+        print(f"Failed to generate embeddings: {e}")
         return False
     
     # Create or recreate collection
@@ -71,23 +71,23 @@ def populate_qdrant(
     vector_size = len(embeddings[0]) if embeddings else 1536
     
     if force_reindex and collection_exists(client, collection_name):
-        print(f"🔄 Recreating collection '{collection_name}' due to force reindex...")
+        print(f"Recreating collection '{collection_name}' due to force reindex...")
         client.delete_collection(collection_name)
     
     if not collection_exists(client, collection_name):
         create_collection(client, collection_name, vector_size)
     else:
-        print(f"📦 Using existing collection '{collection_name}'")
+        print(f"Using existing collection '{collection_name}'")
     
     # Upload to Qdrant
     print("\n6. Uploading data to Qdrant...")
     try:
         upload_pubmed_to_qdrant(client, collection_name, pubmed_records, embeddings)
     except Exception as e:
-        print(f"❌ Failed to upload data: {e}")
+        print(f"Failed to upload data: {e}")
         return False
     
-    print(f"\n✅ Successfully created vector store with {len(pubmed_records)} records!")
+    print(f"\nSuccessfully created vector store with {len(pubmed_records)} records!")
     print(f"Collection: {collection_name}")
     print(f"Vector size: {vector_size}")
     
@@ -143,7 +143,7 @@ Examples:
     
     # Check if data file exists
     if not Path(args.data_path).exists():
-        print(f"❌ Error: Data file not found at {args.data_path}")
+        print(f"Error: Data file not found at {args.data_path}")
         return 1
     
     if args.operation == "populate":
