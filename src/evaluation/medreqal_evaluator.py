@@ -10,7 +10,7 @@ from tqdm import tqdm
 # RAG system imports
 from ..rag.client import setup_rag_client
 from ..rag.models import configure_global_settings
-from ..rag.query_engine import create_simple_query_engine
+from ..rag.query_engine import create_simple_query_engine, create_standard_query_engine, create_enhanced_query_engine
 from .metrics import evaluate_predictions, extract_verdict_from_response, calculate_category_performance
 
 
@@ -20,7 +20,7 @@ class MedREQALEvaluator:
     def __init__(
         self,
         collection_name: str = "medmax_pubmed",
-        engine_type: str = "simple",
+        engine_type: str = "standard",  # Changed default to standard
         delay_between_queries: float = 1.0
     ):
         """Initialize MedREQAL evaluator."""
@@ -40,9 +40,21 @@ class MedREQALEvaluator:
         # Setup RAG client
         _, index = setup_rag_client(self.collection_name)
         
-        # Create query engine
-        self.query_engine = create_simple_query_engine(index, similarity_top_k=5)
-        # Note: Currently only simple engine is implemented
+        # Create query engine based on type
+        if self.engine_type == "simple":
+            self.query_engine = create_simple_query_engine(index, top_k=5)
+        elif self.engine_type == "enhanced":
+            self.query_engine = create_enhanced_query_engine(
+                index, 
+                collection_name=self.collection_name,
+                top_k=5
+            )
+        else:  # standard (default)
+            self.query_engine = create_standard_query_engine(
+                index,
+                collection_name=self.collection_name,
+                top_k=5
+            )
         
         print("✅ RAG system ready for evaluation")
     

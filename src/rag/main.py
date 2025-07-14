@@ -6,7 +6,7 @@ from typing import Optional, Sequence
 
 from .client import setup_rag_client, setup_qdrant_client
 from .models import configure_global_settings, setup_llm, setup_embedding_model
-from .query_engine import create_simple_query_engine, create_query_engine, enhanced_query_engine
+from .query_engine import create_simple_query_engine, create_query_engine, create_standard_query_engine, create_enhanced_query_engine, enhanced_query_engine
 from .retriever import create_custom_retriever
 
 
@@ -180,18 +180,18 @@ Examples:
         if args.engine_type == "simple":
             query_engine = create_simple_query_engine(index, top_k=args.top_k)
         elif args.engine_type == "enhanced":
-            query_engine = enhanced_query_engine(index, top_k=args.top_k, verbose=args.verbose)
-        else:  # standard
-            # Setup custom retriever for standard mode
-            qdrant_client = setup_qdrant_client()
-            custom_retriever = create_custom_retriever(
-                qdrant_client, 
-                args.collection_name, 
-                top_k=args.top_k
-            )
-            query_engine = create_query_engine(
+            query_engine = create_enhanced_query_engine(
                 index, 
-                retriever=custom_retriever, 
+                collection_name=args.collection_name,
+                top_k=args.top_k, 
+                llm_model=args.model,
+                verbose=args.verbose
+            )
+        else:  # standard
+            query_engine = create_standard_query_engine(
+                index,
+                collection_name=args.collection_name,
+                top_k=args.top_k,
                 llm_model=args.model
             )
         

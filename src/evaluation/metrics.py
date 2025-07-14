@@ -7,39 +7,54 @@ import numpy as np
 
 
 def normalize_verdict(verdict: str) -> str:
-    """Normalize verdict labels to standard format."""
+    """Normalize verdict labels to MedREQAL standard format."""
     verdict = str(verdict).upper().strip()
     
-    # Handle different verdict formats
-    if 'ENOUGH' in verdict or 'YES' in verdict or 'BENEFIT' in verdict:
-        return 'YES'
-    elif 'NOT ENOUGH' in verdict or 'NO' in verdict or 'HARM' in verdict:
-        return 'NO'
+    # Handle MedREQAL verdict formats
+    if verdict == 'SUPPORTED' or 'SUPPORT' in verdict:
+        return 'SUPPORTED'
+    elif verdict == 'REFUTED' or 'REFUT' in verdict:
+        return 'REFUTED'
+    elif verdict == 'NOT ENOUGH INFORMATION' or 'NOT ENOUGH' in verdict or 'INSUFFICIENT' in verdict:
+        return 'NOT ENOUGH INFORMATION'
+    # Handle alternative formats that might come from RAG responses
+    elif 'YES' in verdict or 'BENEFIT' in verdict or 'EFFECTIVE' in verdict:
+        return 'SUPPORTED'
+    elif 'NO' in verdict or 'HARM' in verdict or 'INEFFECTIVE' in verdict:
+        return 'REFUTED'
     elif 'UNCERTAIN' in verdict or 'UNCLEAR' in verdict:
-        return 'UNCERTAIN'
+        return 'NOT ENOUGH INFORMATION'
     else:
         return verdict
 
 
 def extract_verdict_from_response(response: str) -> str:
-    """Extract verdict from RAG response text."""
+    """Extract verdict from RAG response text and map to MedREQAL format."""
     response = response.upper().strip()
     
-    # Look for explicit verdicts
-    if 'YES' in response and ('BENEFIT' in response or 'EFFECTIVE' in response):
-        return 'YES'
+    # Look for explicit MedREQAL verdicts first
+    if 'SUPPORTED' in response:
+        return 'SUPPORTED'
+    elif 'REFUTED' in response:
+        return 'REFUTED'
+    elif 'NOT ENOUGH INFORMATION' in response:
+        return 'NOT ENOUGH INFORMATION'
+    
+    # Look for explicit verdicts in alternative formats
+    elif 'YES' in response and ('BENEFIT' in response or 'EFFECTIVE' in response):
+        return 'SUPPORTED'
     elif 'NO' in response and ('HARM' in response or 'NOT EFFECTIVE' in response):
-        return 'NO'
+        return 'REFUTED'
     elif 'NOT ENOUGH' in response or 'INSUFFICIENT' in response:
         return 'NOT ENOUGH INFORMATION'
     elif 'UNCERTAIN' in response or 'UNCLEAR' in response:
-        return 'UNCERTAIN'
+        return 'NOT ENOUGH INFORMATION'
     else:
         # Default fallback based on keywords
-        if any(word in response for word in ['EFFECTIVE', 'BENEFICIAL', 'IMPROVES']):
-            return 'YES'
-        elif any(word in response for word in ['INEFFECTIVE', 'HARMFUL', 'WORSE']):
-            return 'NO'
+        if any(word in response for word in ['EFFECTIVE', 'BENEFICIAL', 'IMPROVES', 'REDUCES']):
+            return 'SUPPORTED'
+        elif any(word in response for word in ['INEFFECTIVE', 'HARMFUL', 'WORSE', 'INCREASES RISK']):
+            return 'REFUTED'
         else:
             return 'NOT ENOUGH INFORMATION'
 
@@ -112,7 +127,7 @@ def evaluate_predictions(
 def calculate_category_performance(
     df: pd.DataFrame, 
     true_col: str = 'verdicts', 
-    pred_col: str = 'rag_predictions',
+    pred_col: str = 'rag_verdict',
     category_col: str = 'category'
 ) -> Dict[str, Dict[str, float]]:
     """Calculate performance metrics by medical category."""

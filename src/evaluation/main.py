@@ -43,6 +43,13 @@ def main():
         help="Limit number of questions to evaluate (for testing)"
     )
     parser.add_argument(
+        "--engine_type", 
+        type=str, 
+        choices=["simple", "standard", "enhanced"],
+        default="standard",
+        help="Type of query engine to use (default: standard)"
+    )
+    parser.add_argument(
         "--delay", 
         type=float, 
         default=1.0,
@@ -67,7 +74,7 @@ def main():
     # Initialize evaluator
     evaluator = MedREQALEvaluator(
         collection_name=args.collection_name,
-        engine_type="simple",
+        engine_type=args.engine_type,
         delay_between_queries=args.delay
     )
     

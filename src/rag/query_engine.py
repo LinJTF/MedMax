@@ -70,6 +70,49 @@ def create_query_engine(
     return query_engine
 
 
+def create_standard_query_engine(
+    index: VectorStoreIndex,
+    collection_name: str = "medmax_pubmed",
+    top_k: int = 5,
+    llm_model: str = "gpt-4o-mini",
+    score_threshold: float = 0.7,
+    **kwargs: Any
+) -> RetrieverQueryEngine:
+    """Create a standard query engine with custom Qdrant retriever for better metadata preservation."""
+    
+    # Import here to avoid circular imports
+    from .client import setup_qdrant_client
+    from .retriever import create_custom_retriever
+    
+    # Setup LLM
+    llm = setup_llm(model=llm_model)
+    
+    # Setup custom Qdrant retriever
+    qdrant_client = setup_qdrant_client()
+    custom_retriever = create_custom_retriever(
+        qdrant_client,
+        collection_name,
+        top_k=top_k,
+        score_threshold=score_threshold
+    )
+    
+    # Setup response synthesizer with medical prompt
+    response_synthesizer = get_response_synthesizer(
+        response_mode=ResponseMode.COMPACT,
+        text_qa_template=MEDICAL_QA_PROMPT,
+        llm=llm,
+    )
+    
+    # Create query engine with custom retriever
+    query_engine = RetrieverQueryEngine(
+        retriever=custom_retriever,
+        response_synthesizer=response_synthesizer,
+    )
+    
+    print(f"🎯 Standard query engine created with custom retriever (top_k={top_k}, threshold={score_threshold})")
+    return query_engine
+
+
 def create_simple_query_engine(
     index: VectorStoreIndex,
     **kwargs: Any
@@ -92,12 +135,62 @@ def create_simple_query_engine(
     return query_engine
 
 
+def create_enhanced_query_engine(
+    index: VectorStoreIndex,
+    collection_name: str = "medmax_pubmed",
+    top_k: int = 10,
+    llm_model: str = "gpt-4o-mini",
+    score_threshold: float = 0.6,
+    response_mode: str = "tree_summarize",
+    custom_prompt: Optional[str] = None,
+    **kwargs: Any
+) -> RetrieverQueryEngine:
+    """Create enhanced query engine with advanced configurations and custom retriever."""
+    
+    # Import here to avoid circular imports
+    from .client import setup_qdrant_client
+    from .retriever import create_custom_retriever
+    
+    # Setup LLM
+    llm = setup_llm(model=llm_model)
+    
+    # Setup custom Qdrant retriever with more lenient threshold
+    qdrant_client = setup_qdrant_client()
+    custom_retriever = create_custom_retriever(
+        qdrant_client,
+        collection_name,
+        top_k=top_k,
+        score_threshold=score_threshold
+    )
+    
+    # Use custom prompt if provided
+    prompt_template = MEDICAL_QA_PROMPT
+    if custom_prompt:
+        prompt_template = PromptTemplate(custom_prompt)
+    
+    # Setup response synthesizer with advanced mode
+    response_synthesizer = get_response_synthesizer(
+        response_mode=ResponseMode.TREE_SUMMARIZE if response_mode == "tree_summarize" else ResponseMode.COMPACT,
+        text_qa_template=prompt_template,
+        llm=llm,
+    )
+    
+    # Create enhanced query engine
+    query_engine = RetrieverQueryEngine(
+        retriever=custom_retriever,
+        response_synthesizer=response_synthesizer,
+    )
+    
+    print(f"⚡ Enhanced query engine created (top_k={top_k}, threshold={score_threshold}, mode={response_mode})")
+    return query_engine
+
+
 def enhanced_query_engine(
     index: VectorStoreIndex,
     custom_prompt: Optional[str] = None,
     **kwargs: Any
 ) -> Any:
-    """Create enhanced query engine with custom configurations."""
+    """Create enhanced query engine with custom configurations (legacy compatibility)."""
     
     # Use custom prompt if provided
     prompt_template = MEDICAL_QA_PROMPT
@@ -112,5 +205,5 @@ def enhanced_query_engine(
         verbose=kwargs.get('verbose', True),
     )
     
-    print("⚡ Enhanced query engine created with custom configurations")
+    print("⚡ Enhanced query engine created with custom configurations (legacy)")
     return query_engine
