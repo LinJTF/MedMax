@@ -78,11 +78,14 @@ def create_simple_query_engine(
     # Setup LLM
     llm = setup_llm()
     
-    # Create simple query engine
+    # Create simple query engine with proper configurations
     query_engine = index.as_query_engine(
         llm=llm,
         text_qa_template=MEDICAL_QA_PROMPT,
-        **kwargs
+        similarity_top_k=kwargs.get('top_k', 5),
+        response_mode="compact",
+        verbose=kwargs.get('verbose', False),
+        **{k: v for k, v in kwargs.items() if k not in ['top_k', 'verbose']}
     )
     
     print("🚀 Simple query engine created")

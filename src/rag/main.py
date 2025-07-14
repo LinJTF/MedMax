@@ -49,7 +49,10 @@ def interactive_query_session(query_engine, collection_name: str):
                     score = getattr(node, 'score', 'N/A')
                     metadata = node.node.metadata if hasattr(node.node, 'metadata') else {}
                     question = metadata.get('question', 'N/A')
-                    print(f"{i}. Score: {score:.3f} | Question: {question[:100]}...")
+                    decision = metadata.get('final_decision', 'N/A')
+                    record_id = metadata.get('record_id', 'N/A')
+                    print(f"{i}. Score: {score:.3f} | ID: {record_id} | Decision: {decision}")
+                    print(f"   Question: {question[:100]}...")
             
             print("=" * 50)
             
@@ -81,10 +84,15 @@ def single_query(query_engine, question: str, verbose: bool = False):
                 score = getattr(node, 'score', 'N/A')
                 metadata = node.node.metadata if hasattr(node.node, 'metadata') else {}
                 question = metadata.get('question', 'N/A')
-                final_decision = metadata.get('final_decision', 'N/A')
-                print(f"{i}. Score: {score:.3f}")
+                decision = metadata.get('final_decision', 'N/A')
+                record_id = metadata.get('record_id', 'N/A')
+                contexts = metadata.get('contexts', [])
+                long_answer = metadata.get('long_answer', 'N/A')
+                print(f"{i}. Score: {score:.3f} | Record ID: {record_id}")
                 print(f"   Question: {question}")
-                print(f"   Decision: {final_decision}")
+                print(f"   Decision: {decision}")
+                print(f"   Contexts: {len(contexts)} available")
+                print(f"   Long Answer: {long_answer[:100]}...")
                 print()
         
         print("=" * 50)
@@ -129,8 +137,8 @@ Examples:
     parser.add_argument(
         "--engine-type",
         choices=["simple", "standard", "enhanced"],
-        default="simple",
-        help="Type of query engine to use (default: simple)"
+        default="standard",
+        help="Type of query engine to use (default: standard)"
     )
     
     parser.add_argument(
@@ -170,7 +178,7 @@ Examples:
         
         # Create query engine based on type
         if args.engine_type == "simple":
-            query_engine = create_simple_query_engine(index, similarity_top_k=args.top_k)
+            query_engine = create_simple_query_engine(index, top_k=args.top_k)
         elif args.engine_type == "enhanced":
             query_engine = enhanced_query_engine(index, top_k=args.top_k, verbose=args.verbose)
         else:  # standard
