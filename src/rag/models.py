@@ -29,7 +29,7 @@ def setup_llm(
         api_key=api_key
     )
     
-    print(f"🤖 LLM configured: {model} (temp: {temperature})")
+    print(f"LLM configured: {model} (temp: {temperature})")
     return llm
 
 
@@ -44,7 +44,7 @@ def setup_embedding_model(model: str = "text-embedding-3-small") -> OpenAIEmbedd
         api_key=api_key
     )
     
-    print(f"🔤 Embedding model configured: {model}")
+    print(f"Embedding model configured: {model}")
     return embed_model
 
 
@@ -52,4 +52,4 @@ def configure_global_settings():
     """Configure LlamaIndex global settings."""
     Settings.llm = setup_llm()
     Settings.embed_model = setup_embedding_model()
-    print("⚙️ Global LlamaIndex settings configured")
+    print("Global LlamaIndex settings configured")

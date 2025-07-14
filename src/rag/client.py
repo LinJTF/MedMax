@@ -24,7 +24,7 @@ def setup_qdrant_client() -> QdrantClient:
     else:
         client = QdrantClient(url=qdrant_url)
     
-    print(f"🔗 Connected to Qdrant at {qdrant_url}")
+    print(f"Connected to Qdrant at {qdrant_url}")
     return client
 
 
@@ -73,5 +73,5 @@ def setup_rag_client(collection_name: str = "medmax_pubmed") -> tuple[QdrantVect
         storage_context=storage_context
     )
     
-    print(f"🎯 RAG client ready with {collection_name}")
+    print(f"RAG client ready with {collection_name}")
     return vector_store, index

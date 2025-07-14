@@ -12,38 +12,38 @@ from .retriever import create_custom_retriever
 
 def interactive_query_session(query_engine, collection_name: str):
     """Run an interactive query session."""
-    print(f"\n🎯 MedMax RAG Interactive Session")
-    print(f"📦 Collection: {collection_name}")
-    print("💡 Type 'quit' or 'exit' to end the session")
+    print(f"\nMedMax RAG Interactive Session")
+    print(f"Collection: {collection_name}")
+    print("Type 'quit' or 'exit' to end the session")
     print("=" * 50)
     
     while True:
         try:
             # Get user query
-            query = input("\n🔍 Enter your medical question: ").strip()
+            query = input("\nEnter your medical question: ").strip()
             
             if query.lower() in ['quit', 'exit', 'q']:
-                print("👋 Ending session. Goodbye!")
+                print("Ending session. Goodbye!")
                 break
             
             if not query:
-                print("❌ Please enter a valid question.")
+                print("Please enter a valid question.")
                 continue
             
-            print("\n🤖 Processing your query...")
+            print("\nProcessing your query...")
             
             # Query the system
             response = query_engine.query(query)
             
             # Display response
             print("\n" + "=" * 50)
-            print("📋 ANSWER:")
+            print("ANSWER:")
             print("-" * 20)
             print(response.response)
             
             # Show sources if available
             if hasattr(response, 'source_nodes') and response.source_nodes:
-                print(f"\n📚 SOURCES ({len(response.source_nodes)} found):")
+                print(f"\nSOURCES ({len(response.source_nodes)} found):")
                 print("-" * 20)
                 for i, node in enumerate(response.source_nodes, 1):
                     score = getattr(node, 'score', 'N/A')
@@ -57,28 +57,28 @@ def interactive_query_session(query_engine, collection_name: str):
             print("=" * 50)
             
         except KeyboardInterrupt:
-            print("\n\n👋 Session interrupted. Goodbye!")
+            print("\n\nSession interrupted. Goodbye!")
             break
         except Exception as e:
-            print(f"\n❌ Error processing query: {e}")
+            print(f"\nError processing query: {e}")
             print("Please try again with a different question.")
 
 
 def single_query(query_engine, question: str, verbose: bool = False):
     """Process a single query and return results."""
-    print(f"\n🔍 Query: {question}")
-    print("🤖 Processing...")
+    print(f"\nQuery: {question}")
+    print("Processing...")
     
     try:
         response = query_engine.query(question)
         
         print("\n" + "=" * 50)
-        print("📋 ANSWER:")
+        print("ANSWER:")
         print("-" * 20)
         print(response.response)
         
         if verbose and hasattr(response, 'source_nodes') and response.source_nodes:
-            print(f"\n📚 SOURCES ({len(response.source_nodes)} found):")
+            print(f"\nSOURCES ({len(response.source_nodes)} found):")
             print("-" * 20)
             for i, node in enumerate(response.source_nodes, 1):
                 score = getattr(node, 'score', 'N/A')
@@ -99,7 +99,7 @@ def single_query(query_engine, question: str, verbose: bool = False):
         return True
         
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"Error: {e}")
         return False
 
 
@@ -195,7 +195,7 @@ Examples:
                 llm_model=args.model
             )
         
-        print("✅ RAG system ready!")
+        print("RAG system ready!")
         
         # Run based on mode
         if args.mode == "interactive":
@@ -205,7 +205,7 @@ Examples:
             return 0 if success else 1
         
     except Exception as e:
-        print(f"❌ Failed to initialize RAG system: {e}")
+        print(f"Failed to initialize RAG system: {e}")
         return 1
     
     return 0

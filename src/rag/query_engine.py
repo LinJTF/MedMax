@@ -47,10 +47,10 @@ def create_query_engine(
     
     # Use custom retriever if provided, otherwise use index retriever
     if retriever is not None:
-        print(f"🔧 Using custom Qdrant retriever")
+        print(f"Using custom Qdrant retriever")
         final_retriever = retriever
     else:
-        print(f"🔧 Using index retriever with top_k={top_k}")
+        print(f"Using index retriever with top_k={top_k}")
         final_retriever = index.as_retriever(similarity_top_k=top_k)
     
     # Setup response synthesizer with custom prompt
@@ -66,7 +66,7 @@ def create_query_engine(
         response_synthesizer=response_synthesizer,
     )
     
-    print(f"🎯 Query engine created with {llm_model} and {response_mode} mode")
+    print(f"Query engine created with {llm_model} and {response_mode} mode")
     return query_engine
 
 
@@ -109,7 +109,7 @@ def create_standard_query_engine(
         response_synthesizer=response_synthesizer,
     )
     
-    print(f"🎯 Standard query engine created with custom retriever (top_k={top_k}, threshold={score_threshold})")
+    print(f"Standard query engine created with custom retriever (top_k={top_k}, threshold={score_threshold})")
     return query_engine
 
 
@@ -131,7 +131,7 @@ def create_simple_query_engine(
         **{k: v for k, v in kwargs.items() if k not in ['top_k', 'verbose']}
     )
     
-    print("🚀 Simple query engine created")
+    print("Simple query engine created")
     return query_engine
 
 
@@ -181,7 +181,7 @@ def create_enhanced_query_engine(
         response_synthesizer=response_synthesizer,
     )
     
-    print(f"⚡ Enhanced query engine created (top_k={top_k}, threshold={score_threshold}, mode={response_mode})")
+    print(f"Enhanced query engine created (top_k={top_k}, threshold={score_threshold}, mode={response_mode})")
     return query_engine
 
 
@@ -205,5 +205,5 @@ def enhanced_query_engine(
         verbose=kwargs.get('verbose', True),
     )
     
-    print("⚡ Enhanced query engine created with custom configurations (legacy)")
+    print("Enhanced query engine created with custom configurations (legacy)")
     return query_engine

@@ -64,7 +64,7 @@ class QdrantRetriever(BaseRetriever):
                 )
                 nodes_with_scores.append(node_with_score)
         
-        print(f"🔍 Retrieved {len(nodes_with_scores)} relevant documents")
+        print(f"Retrieved {len(nodes_with_scores)} relevant documents")
         return nodes_with_scores
 
 
@@ -82,5 +82,5 @@ def create_custom_retriever(
         score_threshold=score_threshold
     )
     
-    print(f"🎯 Custom retriever created (top_k={top_k}, threshold={score_threshold})")
+    print(f"Custom retriever created (top_k={top_k}, threshold={score_threshold})")
     return retriever
