@@ -56,7 +56,7 @@ class MedREQALEvaluator:
                 top_k=5
             )
         
-        print("✅ RAG system ready for evaluation")
+        print("RAG system ready for evaluation")
     
     def load_medreqal_data(self, csv_path: str) -> pd.DataFrame:
         """Load MedREQAL dataset from CSV."""
@@ -64,7 +64,7 @@ class MedREQALEvaluator:
         
         try:
             df = pd.read_csv(csv_path)
-            print(f"✅ Loaded {len(df)} questions from MedREQAL dataset")
+            print(f"Loaded {len(df)} questions from MedREQAL dataset")
             return df
         except Exception as e:
             raise ValueError(f"Failed to load CSV file: {e}")
@@ -99,7 +99,7 @@ class MedREQALEvaluator:
             response = self.query_engine.query(formatted_question)
             return str(response.response)
         except Exception as e:
-            print(f"❌ Error querying RAG system: {e}")
+            print(f"Error querying RAG system: {e}")
             return "ERROR: Could not generate response"
     
     def evaluate_single_question(self, row: pd.Series, index: int) -> Dict[str, Any]:
@@ -149,10 +149,10 @@ class MedREQALEvaluator:
         # Limit dataset if specified
         if limit:
             df = df.head(limit)
-            print(f"🔢 Limited evaluation to {limit} questions")
+            print(f"Limited evaluation to {limit} questions")
         
         # Evaluate each question
-        print(f"🔍 Starting evaluation of {len(df)} questions...")
+        print(f"Starting evaluation of {len(df)} questions...")
         results = []
         
         for index, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating questions"):
@@ -165,7 +165,7 @@ class MedREQALEvaluator:
                     time.sleep(self.delay_between_queries)
                     
             except Exception as e:
-                print(f"❌ Error evaluating question {index}: {e}")
+                print(f"Error evaluating question {index}: {e}")
                 # Add error result
                 results.append({
                     'index': index,
@@ -208,34 +208,34 @@ class MedREQALEvaluator:
         # Save results if output path provided
         if output_path:
             results_df.to_csv(output_path, index=False)
-            print(f"💾 Results saved to {output_path}")
+            print(f"Results saved to {output_path}")
         
-        print("✅ Evaluation completed!")
+        print("Evaluation completed!")
         return results_df, metrics
     
     def print_summary(self, metrics: Dict[str, Any]):
         """Print evaluation summary."""
         print("\n" + "="*50)
-        print("📊 MEDREQAL EVALUATION SUMMARY")
+        print("MEDREQAL EVALUATION SUMMARY")
         print("="*50)
         
         if 'error' in metrics:
-            print(f"❌ {metrics['error']}")
+            print(f"{metrics['error']}")
             return
         
         overall = metrics['overall']
-        print("🎯 Overall Performance:")
+        print("Overall Performance:")
         print(f"   Accuracy: {overall['accuracy']:.3f}")
         print(f"   F1 (Weighted): {overall['f1_weighted']:.3f}")
         print(f"   F1 (Macro): {overall['f1_macro']:.3f}")
         print(f"   Total Samples: {overall['total_samples']}")
         
-        print("\n📈 Evaluation Stats:")
+        print("\nEvaluation Stats:")
         print(f"   Total Questions: {metrics['total_questions']}")
         print(f"   Successful: {metrics['successful_evaluations']}")
         print(f"   Failed: {metrics['failed_evaluations']}")
         
-        print("\n📚 Performance by Category:")
+        print("\nPerformance by Category:")
         for category, cat_metrics in metrics['by_category'].items():
             print(f"   {category}:")
             print(f"     Accuracy: {cat_metrics['accuracy']:.3f}")

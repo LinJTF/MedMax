@@ -9,7 +9,7 @@ pause
 
 REM Check if MedREQAL CSV file exists
 if not exist "data\MedREQAL.csv" (
-    echo ❌ ERROR: MedREQAL dataset not found at data\MedREQAL.csv
+    echo ERROR: MedREQAL dataset not found at data\MedREQAL.csv
     echo Please place your MedREQAL CSV file in the data directory
     pause
     exit /b 1
@@ -18,9 +18,9 @@ if not exist "data\MedREQAL.csv" (
 REM Create evaluation results directory
 if not exist "evaluation_results" mkdir evaluation_results
 
-echo 🎯 Running complete evaluation with Standard Engine...
-echo 📊 Processing all 2786 questions...
-echo ⏱️  Estimated time: ~2-3 hours
+echo Running complete evaluation with Standard Engine...
+echo Processing all 2786 questions...
+echo Estimated time: ~2-3 hours
 echo.
 
 python -m src.evaluation.main ^
@@ -32,8 +32,8 @@ python -m src.evaluation.main ^
     --baseline_accuracy 0.65
 
 echo.
-echo ✅ Complete evaluation finished!
-echo 📊 Results saved in evaluation_results directory
-echo 🎯 Check the final accuracy and F1 scores above
+echo Complete evaluation finished!
+echo Results saved in evaluation_results directory
+echo Check the final accuracy and F1 scores above
 echo.
 pause

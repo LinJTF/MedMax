@@ -78,12 +78,12 @@ def main():
         delay_between_queries=args.delay
     )
     
-    print("🚀 Starting MedREQAL evaluation...")
-    print(f"📁 Dataset: {args.csv_path}")
-    print(f"💾 Output: {output_dir}")
-    print(f"🗃️ Collection: {args.collection_name}")
+    print("Starting MedREQAL evaluation...")
+    print(f"Dataset: {args.csv_path}")
+    print(f"Output: {output_dir}")
+    print(f"Collection: {args.collection_name}")
     if args.limit:
-        print(f"🔢 Limit: {args.limit} questions")
+        print(f"Limit: {args.limit} questions")
     
     # Run evaluation
     try:
@@ -100,40 +100,40 @@ def main():
         metrics_file = output_dir / f"rag_metrics_{timestamp}.json"
         with open(metrics_file, 'w') as f:
             json.dump(metrics, f, indent=2, default=str)
-        print(f"\n💾 Detailed metrics saved to {metrics_file}")
+        print(f"\nDetailed metrics saved to {metrics_file}")
         
         # Compare with baseline if provided
         if args.baseline_accuracy:
-            print(f"\n🔍 Comparing with baseline accuracy: {args.baseline_accuracy:.3f}")
+            print(f"\nComparing with baseline accuracy: {args.baseline_accuracy:.3f}")
             
             if 'overall' in metrics:
                 rag_accuracy = metrics['overall']['accuracy']
                 comparison = compare_with_baseline(rag_accuracy, args.baseline_accuracy)
                 
-                print("📊 Comparison Results:")
+                print("Comparison Results:")
                 print(f"   RAG Accuracy: {rag_accuracy:.3f}")
                 print(f"   Baseline Accuracy: {args.baseline_accuracy:.3f}")
                 print(f"   Improvement: {comparison['improvement']:.3f}")
                 print(f"   Relative Improvement: {comparison['relative_improvement']:.1f}%")
                 
                 if comparison['improvement'] > 0:
-                    print("✅ RAG system outperforms baseline!")
+                    print("RAG system outperforms baseline!")
                 elif comparison['improvement'] < 0:
-                    print("❌ RAG system underperforms baseline")
+                    print("RAG system underperforms baseline")
                 else:
-                    print("➡️ RAG system matches baseline performance")
+                    print("RAG system matches baseline performance")
                 
                 # Save comparison
                 comparison_file = output_dir / f"baseline_comparison_{timestamp}.json"
                 with open(comparison_file, 'w') as f:
                     json.dump(comparison, f, indent=2)
-                print(f"💾 Comparison saved to {comparison_file}")
+                print(f"Comparison saved to {comparison_file}")
         
-        print("\n✅ Evaluation completed successfully!")
-        print(f"📊 Results available in: {output_dir}")
+        print("\nEvaluation completed successfully!")
+        print(f"Results available in: {output_dir}")
         
     except Exception as e:
-        print(f"❌ Evaluation failed: {e}")
+        print(f" Evaluation failed: {e}")
         raise
 
 
