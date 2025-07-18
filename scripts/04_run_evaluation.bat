@@ -1,9 +1,9 @@
 @echo off
 REM Batch script to run complete MedREQAL evaluation
 echo ================================================
-echo 🚀 MedREQAL COMPLETE EVALUATION (ALL 2786 questions)
+echo MedREQAL COMPLETE EVALUATION (ALL 2786 questions)
 echo ================================================
-echo ⚠️  WARNING: This will take several hours!
+echo WARNING: This will take several hours!
 echo Press Ctrl+C to cancel or any key to continue...
 pause
 
