@@ -26,7 +26,7 @@ def load_pubmed_data(jsonl_path: str, limit: int = None) -> List[Dict[str, Any]]
         for line_num, line in enumerate(file, 1):
             # Stop if we reached the limit
             if limit and len(pubmed_data) >= limit:
-                print(f"✅ Reached limit of {limit} records, stopping...")
+                print(f"Reached limit of {limit} records, stopping...")
                 break
                 
             try:
@@ -59,7 +59,7 @@ def load_pubmed_data(jsonl_path: str, limit: int = None) -> List[Dict[str, Any]]
         
         progress_bar.close()
     
-    print(f"✅ Loaded {len(pubmed_data)} valid PubMed records")
+    print(f"Loaded {len(pubmed_data)} valid PubMed records")
     return pubmed_data
 
 
@@ -73,7 +73,7 @@ def format_pubmed_for_embedding(
     truncated_answers = 0
     truncated_final = 0
     
-    print("📝 Formatting texts for embedding...")
+    print("Formatting texts for embedding...")
     
     for record in tqdm(pubmed_records, desc="Formatting records"):
         # Combine contexts into a single text
@@ -106,7 +106,7 @@ def format_pubmed_for_embedding(
         formatted_texts.append(formatted_text)
     
     # Print statistics
-    print("📊 Text formatting statistics:")
+    print("Text formatting statistics:")
     print(f"  - Truncated contexts: {truncated_contexts}")
     print(f"  - Truncated answers: {truncated_answers}")
     print(f"  - Truncated final texts: {truncated_final}")
