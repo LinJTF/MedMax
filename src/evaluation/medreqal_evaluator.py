@@ -1,5 +1,8 @@
 """MedREQAL evaluator for comparing RAG performance with zero-shot results."""
 
+from langfuse import observe
+from src.observability.langfuse_config import create_session
+
 import pandas as pd
 import asyncio
 from typing import List, Dict, Any, Optional, Tuple
@@ -90,6 +93,7 @@ class MedREQALEvaluator:
         
         return formatted_query.strip()
     
+    @observe()
     def query_rag_system(self, formatted_question: str) -> str:
         """Query RAG system and return response."""
         if self.query_engine is None:
@@ -102,6 +106,7 @@ class MedREQALEvaluator:
             print(f"Error querying RAG system: {e}")
             return "ERROR: Could not generate response"
     
+    @observe()
     def evaluate_single_question(self, row: pd.Series, index: int) -> Dict[str, Any]:
         """Evaluate a single question from MedREQAL dataset."""
         # Format question for RAG
@@ -132,6 +137,7 @@ class MedREQALEvaluator:
         
         return result
     
+    @observe()
     def evaluate_dataset(
         self, 
         csv_path: str, 

@@ -1,5 +1,6 @@
 """Main CLI for RAG system queries."""
 
+from langfuse import observe
 import argparse
 import sys
 from typing import Optional, Sequence
@@ -8,6 +9,18 @@ from .client import setup_rag_client, setup_qdrant_client
 from .models import configure_global_settings, setup_llm, setup_embedding_model
 from .query_engine import create_simple_query_engine, create_query_engine, create_standard_query_engine, create_enhanced_query_engine, enhanced_query_engine
 from .retriever import create_custom_retriever
+
+
+def patch_query_engine_with_tracing(query_engine):
+    """Add tracing to existing query engine."""
+    original_query = query_engine.query
+    
+    @observe()
+    def traced_query(question):
+        return original_query(question)
+    
+    query_engine.query = traced_query
+    return query_engine
 
 
 def interactive_query_session(query_engine, collection_name: str):
@@ -194,6 +207,8 @@ Examples:
                 top_k=args.top_k,
                 llm_model=args.model
             )
+
+        query_engine = patch_query_engine_with_tracing(query_engine)
         
         print("RAG system ready!")
         

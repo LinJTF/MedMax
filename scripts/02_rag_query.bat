@@ -28,17 +28,17 @@ goto end
 :single_query
 set /p question="Enter your medical question: "
 echo Running single query...
-cmd /c "micromamba activate medproj && python -m src.rag.main query \"!question!\" --verbose"
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"!question!^""
 goto end
 
 :test_questions
 echo Testing with sample medical questions...
 echo.
 echo Question 1: What is diabetes?
-cmd /c "micromamba activate medproj && python -m src.rag.main query \"What is diabetes?\" --verbose"
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"What is diabetes?^""
 echo.
 echo Question 2: Treatment options for hypertension?
-cmd /c "micromamba activate medproj && python -m src.rag.main query \"What are the treatment options for hypertension?\" --verbose"
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"What are the treatment options for hypertension?^""
 goto end
 
 :advanced_query
@@ -49,7 +49,7 @@ set /p model="OpenAI model (default gpt-4o-mini): "
 if "!model!"=="" set model=gpt-4o-mini
 
 echo Running advanced query...
-cmd /c "micromamba activate medproj && python -m src.rag.main query \"!question!\" --top-k !top_k! --model !model! --engine-type enhanced --verbose"
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"!question!^" --top-k !top_k! --model !model! --engine-type enhanced --verbose"
 goto end
 
 :invalid_choice

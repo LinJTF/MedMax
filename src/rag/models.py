@@ -26,7 +26,8 @@ def setup_llm(
         model=model,
         temperature=temperature,
         max_tokens=max_tokens,
-        api_key=api_key
+        api_key=api_key,
+        timeout=120
     )
     
     print(f"LLM configured: {model} (temp: {temperature})")

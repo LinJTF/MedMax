@@ -1,5 +1,7 @@
 """Metrics calculation for medical Q&A evaluation."""
 
+from langfuse import observe
+
 from typing import List, Dict, Any, Tuple
 import pandas as pd
 from sklearn.metrics import accuracy_score, f1_score, classification_report
@@ -27,7 +29,7 @@ def normalize_verdict(verdict: str) -> str:
     else:
         return verdict
 
-
+@observe()
 def extract_verdict_from_response(response: str) -> str:
     """Extract verdict from RAG response text and map to MedREQAL format."""
     response = response.upper().strip()
@@ -76,7 +78,7 @@ def calculate_f1_score(true_labels: List[str], predicted_labels: List[str], aver
     
     return f1_score(true_normalized, pred_normalized, average=average)
 
-
+@observe()
 def evaluate_predictions(
     true_labels: List[str], 
     predicted_labels: List[str], 
