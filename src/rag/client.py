@@ -44,7 +44,7 @@ def setup_vector_store(
         if collection_name not in collection_names:
             raise ValueError(f"Collection '{collection_name}' not found. Available: {collection_names}")
         
-        print(f"📦 Using collection: {collection_name}")
+        print(f"Using collection: {collection_name}")
         
     except Exception as e:
         raise ConnectionError(f"Failed to verify collection: {e}")

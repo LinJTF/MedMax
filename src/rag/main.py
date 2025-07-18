@@ -164,11 +164,11 @@ Examples:
     
     # Validate arguments
     if args.mode == "query" and not args.question:
-        print("❌ Error: Question is required for 'query' mode")
+        print("Error: Question is required for 'query' mode")
         return 1
     
     try:
-        print("🚀 Starting MedMax RAG system...")
+        print("Starting MedMax RAG system...")
         
         # Configure global settings
         configure_global_settings()
