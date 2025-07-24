@@ -1,0 +1,9 @@
+{
+  "prompts": [
+    {
+      "name": "Generate PR Message",
+      "scope": "diff",
+      "prompt": "Refer to the instructions in the git_writer.instructions.md file for detailed tasks and guidelines."
+    }
+  ]
+}
