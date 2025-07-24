@@ -184,7 +184,6 @@ def create_enhanced_query_engine(
     print(f"Enhanced query engine created (top_k={top_k}, threshold={score_threshold}, mode={response_mode})")
     return query_engine
 
-
 def enhanced_query_engine(
     index: VectorStoreIndex,
     custom_prompt: Optional[str] = None,

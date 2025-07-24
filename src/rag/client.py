@@ -20,9 +20,9 @@ def setup_qdrant_client() -> QdrantClient:
     qdrant_api_key = os.getenv("QDRANT_API_KEY")
     
     if qdrant_api_key:
-        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key)
+        client = QdrantClient(url=qdrant_url, api_key=qdrant_api_key, timeout=120)
     else:
-        client = QdrantClient(url=qdrant_url)
+        client = QdrantClient(url=qdrant_url, timeout=120)
     
     print(f"Connected to Qdrant at {qdrant_url}")
     return client

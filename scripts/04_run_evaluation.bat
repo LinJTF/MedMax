@@ -29,7 +29,8 @@ python -m src.evaluation.main ^
     --collection_name "medmax_pubmed" ^
     --engine_type "standard" ^
     --delay 1.0 ^
-    --baseline_accuracy 0.65
+    --baseline_accuracy 0.65 ^
+    --limit 3
 
 echo.
 echo Complete evaluation finished!
