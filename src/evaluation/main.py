@@ -62,6 +62,21 @@ def main():
         help="Baseline accuracy for comparison (e.g., zero-shot performance)"
     )
     
+    parser.add_argument(
+    "--mode",
+    type=str,
+    choices=["rag", "zero_shot"],
+    default="rag",
+    help="Evaluation mode: rag or zero_shot"
+    )
+    
+    parser.add_argument(
+        "--llm_model",
+        type=str,
+        default="gpt-4o-mini",
+        help="LLM model name for zero-shot mode"
+    )
+    
     args = parser.parse_args()
     
     # Create output directory
@@ -71,67 +86,63 @@ def main():
     # Generate timestamp for unique results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Initialize evaluator
+    # Set output file prefix based on mode
+    result_prefix = "rag" if args.mode == "rag" else "zero_shot"
+
+    # Initialize evaluator with mode and llm_model
     evaluator = MedREQALEvaluator(
         collection_name=args.collection_name,
         engine_type=args.engine_type,
-        delay_between_queries=args.delay
+        delay_between_queries=args.delay,
+        mode=args.mode,
+        llm_model=args.llm_model
     )
-    
-    print("Starting MedREQAL evaluation...")
+
+    print(f"Starting MedREQAL evaluation in {args.mode.upper()} mode...")
     print(f"Dataset: {args.csv_path}")
     print(f"Output: {output_dir}")
     print(f"Collection: {args.collection_name}")
     if args.limit:
         print(f"Limit: {args.limit} questions")
-    
-    # Run evaluation
+
     try:
         _, metrics = evaluator.evaluate_dataset(
             csv_path=args.csv_path,
-            output_path=output_dir / f"rag_results_{timestamp}.csv",
+            output_path=output_dir / f"{result_prefix}_results_{timestamp}.csv",
             limit=args.limit
         )
-        
-        # Print summary
+
         evaluator.print_summary(metrics)
-        
-        # Save metrics
-        metrics_file = output_dir / f"rag_metrics_{timestamp}.json"
+
+        metrics_file = output_dir / f"{result_prefix}_metrics_{timestamp}.json"
         with open(metrics_file, 'w') as f:
             json.dump(metrics, f, indent=2, default=str)
         print(f"\nDetailed metrics saved to {metrics_file}")
-        
-        # Compare with baseline if provided
+
         if args.baseline_accuracy:
             print(f"\nComparing with baseline accuracy: {args.baseline_accuracy:.3f}")
-            
             if 'overall' in metrics:
-                rag_accuracy = metrics['overall']['accuracy']
-                comparison = compare_with_baseline(rag_accuracy, args.baseline_accuracy)
-                
+                eval_accuracy = metrics['overall']['accuracy']
+                comparison = compare_with_baseline(eval_accuracy, args.baseline_accuracy)
                 print("Comparison Results:")
-                print(f"   RAG Accuracy: {rag_accuracy:.3f}")
+                print(f"   Evaluated Accuracy: {eval_accuracy:.3f}")
                 print(f"   Baseline Accuracy: {args.baseline_accuracy:.3f}")
                 print(f"   Improvement: {comparison['improvement']:.3f}")
                 print(f"   Relative Improvement: {comparison['relative_improvement']:.1f}%")
-                
                 if comparison['improvement'] > 0:
-                    print("RAG system outperforms baseline!")
+                    print(f"{args.mode.upper()} system outperforms baseline!")
                 elif comparison['improvement'] < 0:
-                    print("RAG system underperforms baseline")
+                    print(f"{args.mode.upper()} system underperforms baseline")
                 else:
-                    print("RAG system matches baseline performance")
-                
-                # Save comparison
+                    print(f"{args.mode.upper()} system matches baseline performance")
                 comparison_file = output_dir / f"baseline_comparison_{timestamp}.json"
                 with open(comparison_file, 'w') as f:
                     json.dump(comparison, f, indent=2)
                 print(f"Comparison saved to {comparison_file}")
-        
+
         print("\nEvaluation completed successfully!")
         print(f"Results available in: {output_dir}")
-        
+
     except Exception as e:
         print(f" Evaluation failed: {e}")
         raise

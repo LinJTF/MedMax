@@ -11,6 +11,7 @@ import time
 from tqdm import tqdm
 
 # RAG system imports
+from ..rag.models import setup_llm
 from ..rag.client import setup_rag_client
 from ..rag.models import configure_global_settings
 from ..rag.query_engine import create_simple_query_engine, create_standard_query_engine, create_enhanced_query_engine
@@ -24,7 +25,9 @@ class MedREQALEvaluator:
         self,
         collection_name: str = "medmax_pubmed",
         engine_type: str = "standard",  # Changed default to standard
-        delay_between_queries: float = 1.0
+        delay_between_queries: float = 1.0,
+        mode: str = "rag",
+        llm_model: str = "gpt-4o-mini",
     ):
         """Initialize MedREQAL evaluator."""
         self.collection_name = collection_name
@@ -32,6 +35,8 @@ class MedREQALEvaluator:
         self.delay_between_queries = delay_between_queries
         self.query_engine = None
         self.results = []
+        self.mode = mode
+        self.llm_model = llm_model
         
     def setup_rag_system(self):
         """Setup RAG system for evaluation."""
@@ -109,98 +114,129 @@ class MedREQALEvaluator:
     @observe()
     def evaluate_single_question(self, row: pd.Series, index: int) -> Dict[str, Any]:
         """Evaluate a single question from MedREQAL dataset."""
+        # Perform zero-shot evaluation if mode is set to 'zero_shot'
+        if self.mode == "zero_shot":
+            llm = setup_llm(model=self.llm_model)
+            prompt = (
+                f"Medical Question: {row['question']}\n"
+                "Please answer and provide a clear verdict: SUPPORTED, REFUTED, or NOT ENOUGH INFORMATION."
+            )
+            try:
+                response = llm.complete(prompt)
+                answer = response.text if hasattr(response, "text") else str(response)
+                verdict = extract_verdict_from_response(answer)
+            except Exception as e:
+                answer = f"ERROR: {e}"
+                verdict = "ERROR"
+            result = {
+                'index': index,
+                'question': row['question'],
+                'category': row.get('category', 'unknown'),
+                'true_verdict': row['verdicts'],
+                'llm_response': answer,
+                'llm_verdict': verdict
+            }
+        
         # Format question for RAG
-        formatted_question = self.format_question_with_context(row)
-        
-        # Query RAG system
-        rag_response = self.query_rag_system(formatted_question)
-        
-        # Extract verdict from response
-        rag_verdict = extract_verdict_from_response(rag_response)
-        
-        # Get ground truth
-        true_verdict = row['verdicts']
-        
-        # Prepare result
-        result = {
-            'index': index,
-            'question': row['question'],
-            'category': row.get('category', 'unknown'),
-            'true_verdict': true_verdict,
-            'rag_response': rag_response,
-            'rag_verdict': rag_verdict,
-            'background': row.get('background', ''),
-            'conclusion': row.get('conclusion', ''),
-            'strength': row.get('strength', ''),
-            'label': row.get('label', '')
-        }
+        else:
+            formatted_question = self.format_question_with_context(row)
+            
+            # Query RAG system
+            rag_response = self.query_rag_system(formatted_question)
+            
+            # Extract verdict from response
+            rag_verdict = extract_verdict_from_response(rag_response)
+            
+            # Get ground truth
+            true_verdict = row['verdicts']
+            
+            # Prepare result
+            result = {
+                'index': index,
+                'question': row['question'],
+                'category': row.get('category', 'unknown'),
+                'true_verdict': true_verdict,
+                'rag_response': rag_response,
+                'rag_verdict': rag_verdict,
+                'background': row.get('background', ''),
+                'conclusion': row.get('conclusion', ''),
+                'strength': row.get('strength', ''),
+                'label': row.get('label', '')
+            }
         
         return result
     
     @observe()
     def evaluate_dataset(
-        self, 
-        csv_path: str, 
-        output_path: Optional[str] = None,
-        limit: Optional[int] = None
+            self, 
+            csv_path: str, 
+            output_path: Optional[str] = None,
+            limit: Optional[int] = None
     ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """Evaluate complete MedREQAL dataset."""
-        
-        # Setup RAG system
-        self.setup_rag_system()
-        
+        # Setup system
+        if self.mode == "zero_shot":
+            print("Running in ZERO-SHOT mode (no retrieval)...")
+        else:
+            self.setup_rag_system()
+
         # Load data
         df = self.load_medreqal_data(csv_path)
-        
-        # Limit dataset if specified
         if limit:
             df = df.head(limit)
             print(f"Limited evaluation to {limit} questions")
-        
-        # Evaluate each question
+
         print(f"Starting evaluation of {len(df)} questions...")
         results = []
-        
         for index, row in tqdm(df.iterrows(), total=len(df), desc="Evaluating questions"):
             try:
                 result = self.evaluate_single_question(row, index)
                 results.append(result)
-                
-                # Add delay to avoid rate limiting
                 if self.delay_between_queries > 0:
                     time.sleep(self.delay_between_queries)
-                    
             except Exception as e:
                 print(f"Error evaluating question {index}: {e}")
                 # Add error result
-                results.append({
+                error_result = {
                     'index': index,
                     'question': row['question'],
                     'category': row.get('category', 'unknown'),
                     'true_verdict': row['verdicts'],
-                    'rag_response': f"ERROR: {str(e)}",
-                    'rag_verdict': 'ERROR',
                     'error': str(e)
-                })
-        
-        # Convert results to DataFrame
+                }
+                if self.mode == "zero_shot":
+                    error_result['llm_response'] = f"ERROR: {str(e)}"
+                    error_result['llm_verdict'] = "ERROR"
+                else:
+                    error_result['rag_response'] = f"ERROR: {str(e)}"
+                    error_result['rag_verdict'] = "ERROR"
+                results.append(error_result)
+
         results_df = pd.DataFrame(results)
-        
-        # Calculate overall metrics
-        valid_results = results_df[results_df['rag_verdict'] != 'ERROR']
-        
-        if len(valid_results) > 0:
+        # Metrics
+        if self.mode == "zero_shot":
+            valid_results = results_df[results_df['llm_verdict'] != 'ERROR']
             true_verdicts = valid_results['true_verdict'].tolist()
-            rag_verdicts = valid_results['rag_verdict'].tolist()
-            
-            overall_metrics = evaluate_predictions(true_verdicts, rag_verdicts)
+            pred_verdicts = valid_results['llm_verdict'].tolist()
+            overall_metrics = evaluate_predictions(true_verdicts, pred_verdicts)
+            category_metrics = calculate_category_performance(
+                valid_results, 
+                'true_verdict', 
+                'llm_verdict', 
+                'category'
+            )
+        else:
+            valid_results = results_df[results_df['rag_verdict'] != 'ERROR']
+            true_verdicts = valid_results['true_verdict'].tolist()
+            pred_verdicts = valid_results['rag_verdict'].tolist()
+            overall_metrics = evaluate_predictions(true_verdicts, pred_verdicts)
             category_metrics = calculate_category_performance(
                 valid_results, 
                 'true_verdict', 
                 'rag_verdict', 
                 'category'
             )
-            
+        if len(valid_results) > 0:
             metrics = {
                 'overall': overall_metrics,
                 'by_category': category_metrics,
@@ -210,12 +246,11 @@ class MedREQALEvaluator:
             }
         else:
             metrics = {'error': 'No successful evaluations'}
-        
-        # Save results if output path provided
+
         if output_path:
             results_df.to_csv(output_path, index=False)
             print(f"Results saved to {output_path}")
-        
+
         print("Evaluation completed!")
         return results_df, metrics
     
