@@ -18,9 +18,11 @@ if not exist "data\MedREQAL.csv" (
 REM Create evaluation results directory
 if not exist "evaluation_results" mkdir evaluation_results
 
+set LIMIT=2786
+
 echo Running evaluation with both RAG and Zero-Shot approaches...
-echo Processing 3 questions with each approach...
-echo Estimated time: ~2-3 minutes for testing
+echo Processing %LIMIT% questions...
+echo Estimated time: ~2-3 hours
 echo.
 
 echo ================================================
@@ -34,6 +36,7 @@ python -m src.evaluation.main ^
     --engine_type "standard" ^
     --delay 0.5 ^
     --baseline_accuracy 0.65 ^
+    --limit %LIMIT% ^
     --mode "rag"
 
 if %ERRORLEVEL% neq 0 (
@@ -55,6 +58,7 @@ python -m src.evaluation.main ^
     --delay 0.5 ^
     --baseline_accuracy 0.65 ^
     --mode "zero_shot" ^
+    --limit %LIMIT% ^
     --llm_model "gpt-4o-mini"
 
 if %ERRORLEVEL% neq 0 (
