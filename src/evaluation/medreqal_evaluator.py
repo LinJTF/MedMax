@@ -1,7 +1,7 @@
 """MedREQAL evaluator for comparing RAG performance with zero-shot results."""
 
 from langfuse import observe
-from src.observability.langfuse_config import create_session
+from src.observability.langfuse_config import create_session, update_current_generation, update_trace_metadata, update_span_metadata
 
 import pandas as pd
 import asyncio
@@ -9,6 +9,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from pathlib import Path
 import time
 from tqdm import tqdm
+
+from src.observability.token_cost import calculate_cost, get_token_usage
 
 # RAG system imports
 from ..rag.models import setup_llm
@@ -101,40 +103,119 @@ class MedREQALEvaluator:
     @observe()
     def query_rag_system(self, formatted_question: str) -> str:
         """Query RAG system and return response."""
+        
+        update_span_metadata({
+            "operation": "rag_query",
+            "formatted_question": formatted_question,
+            "collection_name": self.collection_name,
+            "engine_type": self.engine_type
+        })
+        
         if self.query_engine is None:
             raise ValueError("RAG system not initialized. Call setup_rag_system() first.")
         
         try:
             response = self.query_engine.query(formatted_question)
+            response_text = str(response.response) if hasattr(response, "response") else str(response)
+                           
+            token_usage = get_token_usage(formatted_question, response_text, self.llm_model)
+            cost = calculate_cost(
+                token_usage['input_tokens'],
+                token_usage['output_tokens'],
+                self.llm_model
+            )
+            
+            update_current_generation(
+                model=self.llm_model,
+                input_text=formatted_question,
+                output_text=response_text,
+                input_tokens=token_usage["input_tokens"],
+                output_tokens=token_usage["output_tokens"],
+                input_cost=cost["input_cost"],
+                output_cost=cost["output_cost"],
+                metadata={
+                    "evaluation_mode": "rag",
+                    "engine_type": self.engine_type,
+                    "collection_name": self.collection_name,
+                }
+            )
             return str(response.response)
         except Exception as e:
             print(f"Error querying RAG system: {e}")
             return "ERROR: Could not generate response"
     
     @observe()
+    def zero_shot_system(self, prompt: str, question_index: int, category: str) -> Tuple[str, str]:
+        """Perform zero-shot LLM call with proper generation tracking."""
+        update_span_metadata({
+            "operation": "zero_shot_generation",
+            "question_index": question_index,
+            "category": category,
+            "model": self.llm_model
+        })
+        
+        try:
+            llm = setup_llm(model=self.llm_model)
+            response = llm.complete(prompt)
+            answer = response.text if hasattr(response, "text") else str(response)
+            verdict = extract_verdict_from_response(answer)
+            
+            token_usage = get_token_usage(prompt, answer, self.llm_model)
+            costs = calculate_cost(
+                token_usage['input_tokens'],
+                token_usage['output_tokens'],
+                self.llm_model
+            )
+
+            update_current_generation(
+                model=self.llm_model,
+                input_text=prompt,
+                output_text=answer,
+                input_tokens=token_usage["input_tokens"],
+                output_tokens=token_usage["output_tokens"],
+                input_cost=costs["input_cost"],
+                output_cost=costs["output_cost"],
+                metadata={
+                    "evaluation_mode": "zero_shot",
+                    "engine_type": self.engine_type,
+                    "collection_name": self.collection_name,
+                }
+            )
+            
+            return answer, verdict
+            
+        except Exception as e:
+            print(f"Error in zero-shot LLM call: {e}")
+            return f"ERROR: {e}", "ERROR"
+    
+    @observe()
     def evaluate_single_question(self, row: pd.Series, index: int) -> Dict[str, Any]:
         """Evaluate a single question from MedREQAL dataset."""
         # Perform zero-shot evaluation if mode is set to 'zero_shot'
+        update_span_metadata({
+            "operation": "evaluate_single_question",
+            "question_index": index,
+            "mode": self.mode,
+        })
         if self.mode == "zero_shot":
-            llm = setup_llm(model=self.llm_model)
             prompt = (
                 f"Medical Question: {row['question']}\n"
                 "Please answer and provide a clear verdict: SUPPORTED, REFUTED, or NOT ENOUGH INFORMATION."
             )
-            try:
-                response = llm.complete(prompt)
-                answer = response.text if hasattr(response, "text") else str(response)
-                verdict = extract_verdict_from_response(answer)
-            except Exception as e:
-                answer = f"ERROR: {e}"
-                verdict = "ERROR"
+            answer, verdict = self.zero_shot_system(
+                prompt, 
+                question_index=index, 
+                category=row.get('category', 'unknown')
+            )
+    
             result = {
                 'index': index,
                 'question': row['question'],
                 'category': row.get('category', 'unknown'),
                 'true_verdict': row['verdicts'],
                 'llm_response': answer,
-                'llm_verdict': verdict
+                'llm_verdict': verdict,
+                'mode': self.mode
             }
         
         # Format question for RAG
@@ -161,7 +242,8 @@ class MedREQALEvaluator:
                 'background': row.get('background', ''),
                 'conclusion': row.get('conclusion', ''),
                 'strength': row.get('strength', ''),
-                'label': row.get('label', '')
+                'label': row.get('label', ''),
+                'mode': self.mode
             }
         
         return result
@@ -174,6 +256,16 @@ class MedREQALEvaluator:
             limit: Optional[int] = None
     ) -> Tuple[pd.DataFrame, Dict[str, Any]]:
         """Evaluate complete MedREQAL dataset."""
+        update_trace_metadata({
+            "operation": "evaluate_dataset",
+            "mode": self.mode,
+            "service": "medreqal_evaluation",
+            "engine_type": self.engine_type,
+            "collection_name": self.collection_name,
+            "llm_model": self.llm_model,
+            "dataset_path": csv_path,
+            "limit": limit
+        })
         # Setup system
         if self.mode == "zero_shot":
             print("Running in ZERO-SHOT mode (no retrieval)...")

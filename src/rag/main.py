@@ -5,6 +5,7 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
+from ..observability.langfuse_config import update_trace_metadata, update_span_metadata
 from .client import setup_rag_client, setup_qdrant_client
 from .models import configure_global_settings, setup_llm, setup_embedding_model
 from .query_engine import create_simple_query_engine, create_query_engine, create_standard_query_engine, create_enhanced_query_engine, enhanced_query_engine
@@ -22,9 +23,15 @@ def patch_query_engine_with_tracing(query_engine):
     query_engine.query = traced_query
     return query_engine
 
-
+@observe()
 def interactive_query_session_rag(query_engine, collection_name: str):
     """Run an interactive query session."""
+    update_span_metadata({
+        "operation": "interactive_rag_session",
+        "collection_name": collection_name,
+        "session_type": "interactive",
+        "mode": "rag"
+    })
     print(f"\nMedMax RAG Interactive Session")
     print(f"Collection: {collection_name}")
     print("Type 'quit' or 'exit' to end the session")
@@ -76,9 +83,15 @@ def interactive_query_session_rag(query_engine, collection_name: str):
             print(f"\nError processing query: {e}")
             print("Please try again with a different question.")
             
-
+@observe()
 def interactive_query_session_zero_shot(llm_model: str):
     """Interactive session for zero-shot mode."""
+    update_span_metadata({
+        "operation": "interactive_zero_shot_session",
+        "llm_model": llm_model,
+        "session_type": "interactive",
+        "mode": "zero_shot"
+    })
     print(f"\nMedMax Zero-Shot Interactive Session")
     print(f"Model: {llm_model}")
     print("Type 'quit' or 'exit' to end the session")
@@ -112,9 +125,15 @@ def interactive_query_session_zero_shot(llm_model: str):
             print(f"\nError processing query: {e}")
             print("Please try again with a different question.")
 
-
+@observe()
 def single_query_rag(query_engine, question: str, verbose: bool = False):
     """Process a single query and return results."""
+    update_span_metadata({
+        "operation": "single_rag_query",
+        "verbose_mode": verbose,
+        "query_type": "single_query",
+        "mode": "rag"
+    })
     print(f"\nQuery: {question}")
     print("Processing...")
     
@@ -151,9 +170,15 @@ def single_query_rag(query_engine, question: str, verbose: bool = False):
         print(f"Error: {e}")
         return False
 
-
+@observe()
 def single_query_zero_shot(question: str, llm_model: str):
     """Single query for zero-shot mode."""
+    update_span_metadata({
+        "operation": "single_zero_shot_query",
+        "llm_model": llm_model,
+        "query_type": "single_query",
+        "mode": "zero_shot"
+    })
     print(f"\nQuery: {question}")
     print("Processing...")
     try:
@@ -173,7 +198,6 @@ def single_query_zero_shot(question: str, llm_model: str):
     except Exception as e:
         print(f"Error: {e}")
         return False
-
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Main function for RAG CLI."""
@@ -245,7 +269,7 @@ Examples:
     
     args = parser.parse_args(argv)
     
-    # Validate arguments
+
     if args.cli_mode == "query" and not args.question:
         print("Error: Question is required for 'query' mode")
         return 1
