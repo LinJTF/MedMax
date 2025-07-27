@@ -5,7 +5,9 @@ import argparse
 import sys
 from typing import Optional, Sequence
 
-from ..observability.langfuse_config import update_trace_metadata, update_span_metadata
+from src.observability.token_cost import calculate_cost, get_token_usage
+
+from ..observability.langfuse_config import update_trace_metadata, update_span_metadata, update_current_generation
 from .client import setup_rag_client, setup_qdrant_client
 from .models import configure_global_settings, setup_llm, setup_embedding_model
 from .query_engine import create_simple_query_engine, create_query_engine, create_standard_query_engine, create_enhanced_query_engine, enhanced_query_engine
@@ -23,6 +25,7 @@ def patch_query_engine_with_tracing(query_engine):
     query_engine.query = traced_query
     return query_engine
 
+@observe()
 @observe()
 def interactive_query_session_rag(query_engine, collection_name: str):
     """Run an interactive query session."""
@@ -54,12 +57,32 @@ def interactive_query_session_rag(query_engine, collection_name: str):
             
             # Query the system
             response = query_engine.query(query)
+            response_text = str(response.response) if hasattr(response, "response") else str(response)
+            try:
+                token_usage = get_token_usage(query, response_text)
+                costs = calculate_cost(token_usage["input_tokens"], token_usage["output_tokens"])
+                update_current_generation(
+                    model="gpt-4o-mini",  # Ou args.model se disponível
+                    input_text=query,
+                    output_text=response_text,
+                    input_tokens=token_usage["input_tokens"],
+                    output_tokens=token_usage["output_tokens"],
+                    input_cost=costs["input_cost"],
+                    output_cost=costs["output_cost"],
+                    metadata={
+                        "mode": "rag",
+                        "collection_name": collection_name,
+                        "interaction_type": "interactive_session"
+                    }
+                )
+            except Exception as e:
+                print(f"Warning: Failed to track tokens/costs: {e}")
             
             # Display response
             print("\n" + "=" * 50)
             print("ANSWER:")
             print("-" * 20)
-            print(response.response)
+            print(response_text)
             
             # Show sources if available
             if hasattr(response, 'source_nodes') and response.source_nodes:
@@ -113,6 +136,26 @@ def interactive_query_session_zero_shot(llm_model: str):
             )
             response = llm.complete(prompt)
             answer = response.text if hasattr(response, "text") else str(response)
+            
+            try:
+                token_usage = get_token_usage(prompt, answer)
+                costs = calculate_cost(token_usage["input_tokens"], token_usage["output_tokens"])
+                update_current_generation(
+                    model=llm_model,
+                    input_text=prompt,
+                    output_text=answer,
+                    input_tokens=token_usage["input_tokens"],
+                    output_tokens=token_usage["output_tokens"],
+                    input_cost=costs["input_cost"],
+                    output_cost=costs["output_cost"],
+                    metadata={
+                        "mode": "zero_shot",
+                        "llm_model": llm_model
+                    }
+                )
+            except Exception as e:
+                print(f"Warning: Failed to track tokens/costs: {e}")
+            
             print("\n" + "=" * 50)
             print("ANSWER:")
             print("-" * 20)
@@ -126,7 +169,7 @@ def interactive_query_session_zero_shot(llm_model: str):
             print("Please try again with a different question.")
 
 @observe()
-def single_query_rag(query_engine, question: str, verbose: bool = False):
+def single_query_rag(query_engine, question: str, llm_model: str = "gpt-4o-mini", verbose: bool = False):
     """Process a single query and return results."""
     update_span_metadata({
         "operation": "single_rag_query",
@@ -139,11 +182,29 @@ def single_query_rag(query_engine, question: str, verbose: bool = False):
     
     try:
         response = query_engine.query(question)
+        response_text = str(response.response) if hasattr(response, "response") else str(response)
+        try:
+            token_usage = get_token_usage(question, response_text)
+            costs = calculate_cost(token_usage["input_tokens"], token_usage["output_tokens"])
+            update_current_generation(
+                model=llm_model,
+                input_text=question,
+                output_text=response_text,
+                input_tokens=token_usage["input_tokens"],
+                output_tokens=token_usage["output_tokens"],
+                input_cost=costs["input_cost"],
+                output_cost=costs["output_cost"],
+                metadata={
+                    "mode": "rag"
+                }
+            )
+        except Exception as e:
+            print(f"Warning: Failed to track tokens/costs: {e}")
         
         print("\n" + "=" * 50)
         print("ANSWER:")
         print("-" * 20)
-        print(response.response)
+        print(response_text)
         
         if verbose and hasattr(response, 'source_nodes') and response.source_nodes:
             print(f"\nSOURCES ({len(response.source_nodes)} found):")
@@ -189,6 +250,25 @@ def single_query_zero_shot(question: str, llm_model: str):
         )
         response = llm.complete(prompt)
         answer = response.text if hasattr(response, "text") else str(response)
+        
+        try:
+            token_usage = get_token_usage(prompt, answer)
+            costs = calculate_cost(token_usage["input_tokens"], token_usage["output_tokens"])
+            update_current_generation(
+                model=llm_model,
+                input_text=prompt,
+                output_text=answer,
+                input_tokens=token_usage["input_tokens"],
+                output_tokens=token_usage["output_tokens"],
+                input_cost=costs["input_cost"],
+                output_cost=costs["output_cost"],
+                metadata={
+                    "mode": "zero_shot",
+                    "llm_model": llm_model
+                }
+            )
+        except Exception as e:
+            print(f"Warning: Failed to track tokens/costs: {e}")
         print("\n" + "=" * 50)
         print("ANSWER:")
         print("-" * 20)
@@ -199,6 +279,7 @@ def single_query_zero_shot(question: str, llm_model: str):
         print(f"Error: {e}")
         return False
 
+@observe()
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Main function for RAG CLI."""
     parser = argparse.ArgumentParser(
@@ -307,7 +388,7 @@ Examples:
             if args.cli_mode == "interactive":
                 interactive_query_session_rag(query_engine, args.collection_name)
             else:
-                success = single_query_rag(query_engine, args.question, args.verbose)
+                success = single_query_rag(query_engine, args.question, args.model, args.verbose)
                 return 0 if success else 1
 
         else:  # zero_shot
