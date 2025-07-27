@@ -11,10 +11,12 @@ from pathlib import Path
 from datetime import datetime
 import json
 
+from langfuse import observe
 from .medreqal_evaluator import MedREQALEvaluator
 from .metrics import compare_with_baseline
 
 
+@observe(name="Evaluation flow")
 def main():
     """Main evaluation function."""
     parser = argparse.ArgumentParser(description="Evaluate RAG system on MedREQAL dataset")

@@ -1,9 +1,11 @@
 {
+  "system": "Always use cmd.exe (Command Prompt) as the shell, never PowerShell. At the start of every command or code execution, run 'micromamba activate medproj' so all following commands are executed inside this environment. If running a multi-line script, chain commands using '&&' in cmd.exe syntax. Never use PowerShell-specific syntax.",
   "prompts": [
     {
       "name": "Generate PR Message",
       "scope": "diff",
-      "prompt": "Refer to the instructions in the git_writer.instructions.md file for detailed tasks and guidelines."
+      "prompt":
+        "Analyze the staged diff. Your tasks:\n\n1. Suggest a clear, conventional commit message:\n   - Use the format: <type>(<scope>): <subject>\n   - Types: feat, fix, refactor, docs, chore\n   - Scope: optional (e.g., rag_index, git_writer)\n   - Subject: concise summary, imperative mood, max 50 characters\n   - Body (optional): explain the change in 72 characters per line\n   - Example: feat(rag_index): Centralize embedding model init\n\n2. Indicate if the change should be split into smaller commits (explain why)\n\n3. Perform a brief code review: check for clarity, structure, and maintainability\n\n4. Check if new logic or code paths have corresponding test coverage\n\n5. Remember that the description should be in English, and should be continous text instead of just bullet points.\n\n6. Finally, remember that you should focus on `why` the change was made, not just `what` was changed since it is already visible in the diff."
     }
   ]
 }
