@@ -26,8 +26,7 @@ def patch_query_engine_with_tracing(query_engine):
     return query_engine
 
 @observe()
-@observe()
-def interactive_query_session_rag(query_engine, collection_name: str):
+def interactive_query_session_rag(query_engine, collection_name: str, llm_model: str = "gpt-4o-mini"):
     """Run an interactive query session."""
     update_span_metadata({
         "operation": "interactive_rag_session",
@@ -42,7 +41,6 @@ def interactive_query_session_rag(query_engine, collection_name: str):
     
     while True:
         try:
-            # Get user query
             query = input("\nEnter your medical question: ").strip()
             
             if query.lower() in ['quit', 'exit', 'q']:
@@ -54,15 +52,14 @@ def interactive_query_session_rag(query_engine, collection_name: str):
                 continue
             
             print("\nProcessing your query...")
-            
-            # Query the system
+
             response = query_engine.query(query)
             response_text = str(response.response) if hasattr(response, "response") else str(response)
             try:
                 token_usage = get_token_usage(query, response_text)
                 costs = calculate_cost(token_usage["input_tokens"], token_usage["output_tokens"])
                 update_current_generation(
-                    model="gpt-4o-mini",  # Ou args.model se disponível
+                    model=llm_model,
                     input_text=query,
                     output_text=response_text,
                     input_tokens=token_usage["input_tokens"],
@@ -78,13 +75,11 @@ def interactive_query_session_rag(query_engine, collection_name: str):
             except Exception as e:
                 print(f"Warning: Failed to track tokens/costs: {e}")
             
-            # Display response
             print("\n" + "=" * 50)
             print("ANSWER:")
             print("-" * 20)
             print(response_text)
             
-            # Show sources if available
             if hasattr(response, 'source_nodes') and response.source_nodes:
                 print(f"\nSOURCES ({len(response.source_nodes)} found):")
                 print("-" * 20)
@@ -359,11 +354,8 @@ Examples:
         print(f"Starting MedMax system in {args.mode.upper()} mode...")
 
         if args.mode == "rag":
-            # Configure global settings
             configure_global_settings()
-            # Setup RAG client
             vector_store, index = setup_rag_client(args.collection_name)
-            # Create query engine based on type
             if args.engine_type == "simple":
                 query_engine = create_simple_query_engine(index, top_k=args.top_k)
             elif args.engine_type == "enhanced":
@@ -374,7 +366,7 @@ Examples:
                     llm_model=args.model,
                     verbose=args.verbose
                 )
-            else:  # standard
+            else:
                 query_engine = create_standard_query_engine(
                     index,
                     collection_name=args.collection_name,
@@ -384,14 +376,13 @@ Examples:
             query_engine = patch_query_engine_with_tracing(query_engine)
             print("RAG system ready!")
 
-            # Run based on CLI mode
             if args.cli_mode == "interactive":
-                interactive_query_session_rag(query_engine, args.collection_name)
+                interactive_query_session_rag(query_engine, args.collection_name, args.model)
             else:
                 success = single_query_rag(query_engine, args.question, args.model, args.verbose)
                 return 0 if success else 1
 
-        else:  # zero_shot
+        else:
             print("Zero-Shot mode ready!")
             if args.cli_mode == "interactive":
                 interactive_query_session_zero_shot(args.model)
