@@ -274,7 +274,7 @@ def single_query_zero_shot(question: str, llm_model: str):
         print(f"Error: {e}")
         return False
 
-@observe()
+@observe(name="RAG/Zero-shot flow")
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Main function for RAG CLI."""
     parser = argparse.ArgumentParser(

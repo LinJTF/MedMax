@@ -17,6 +17,7 @@ from ..rag.models import setup_llm
 from ..rag.client import setup_rag_client
 from ..rag.models import configure_global_settings
 from ..rag.query_engine import create_simple_query_engine, create_standard_query_engine, create_enhanced_query_engine
+from ..rag.main import patch_query_engine_with_tracing
 from .metrics import evaluate_predictions, extract_verdict_from_response, calculate_category_performance
 
 
@@ -65,6 +66,9 @@ class MedREQALEvaluator:
                 collection_name=self.collection_name,
                 top_k=5
             )
+        
+        # Apply tracing patch to query engine to capture all LLM calls
+        self.query_engine = patch_query_engine_with_tracing(self.query_engine)
         
         print("RAG system ready for evaluation")
     
