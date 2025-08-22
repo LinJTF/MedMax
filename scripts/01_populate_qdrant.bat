@@ -14,14 +14,17 @@ echo Collection: %COLLECTION_NAME%
 echo Data source: %DATA_PATH%
 echo.
 echo Choose mode:
-echo [1] Test mode (10 records only)
-echo [2] Full dataset
-echo [3] Custom limit
-echo [4] Force reindex (recreate collection)
-echo [5] Custom collection name
-echo [6] Delete collection and populate with custom limit
+echo [1] Test mode (10 PubMed records)
+echo [2] PubMed full dataset
+echo [3] PubMed custom limit
+echo [4] PubMed force reindex
+echo [5] PubMed custom collection name
+echo [6] PubMed delete + custom limit
+echo [7] Collect Wikipedia health titles (writes data/wiki_health_titles.txt)
+echo [8] Populate Wikipedia-only collection from titles file
+echo [9] Populate combined PubMed + Wikipedia into new collection
 echo.
-set /p choice="Enter choice (1-6): "
+set /p choice="Enter choice (1-9): "
 
 if "%choice%"=="1" goto test_mode
 if "%choice%"=="2" goto full_dataset
@@ -29,6 +32,9 @@ if "%choice%"=="3" goto custom_limit
 if "%choice%"=="4" goto force_reindex
 if "%choice%"=="5" goto custom_collection
 if "%choice%"=="6" goto delete_and_custom
+if "%choice%"=="7" goto collect_wiki
+if "%choice%"=="8" goto populate_wiki
+if "%choice%"=="9" goto populate_combined
 goto invalid_choice
 
 :test_mode
@@ -86,6 +92,34 @@ if /i "!confirm!"=="y" (
 ) else (
     echo Operation cancelled.
 )
+goto end
+
+:collect_wiki
+echo Collecting Wikipedia health-related titles (default limits)...
+cmd /c "micromamba activate medproj && python -m src.vector_store.wiki_collect --output data/wiki_health_titles.txt"
+echo Done collecting. File: data/wiki_health_titles.txt
+goto end
+
+:populate_wiki
+set /p WIKI_COLLECTION="Enter target Wikipedia collection name (default: medmax_wiki_health): "
+if "%WIKI_COLLECTION%"=="" set WIKI_COLLECTION=medmax_wiki_health
+if not exist data\wiki_health_titles.txt (
+    echo Missing data/wiki_health_titles.txt. Run option 7 first or create it.
+    goto end
+)
+echo Populating Wikipedia-only collection %WIKI_COLLECTION% ...
+cmd /c "micromamba activate medproj && python -m src.vector_store.main populate_wiki --collection-name %WIKI_COLLECTION% --wikipedia-titles-file data/wiki_health_titles.txt"
+goto end
+
+:populate_combined
+set /p COMBINED_COLLECTION="Enter combined collection name (default: medmax_pubmed_wiki): "
+if "%COMBINED_COLLECTION%"=="" set COMBINED_COLLECTION=medmax_pubmed_wiki
+if not exist data\wiki_health_titles.txt (
+    echo Missing data/wiki_health_titles.txt. Run option 7 first or create it.
+    goto end
+)
+echo Building combined collection %COMBINED_COLLECTION% from PubMed + Wikipedia...
+cmd /c "micromamba activate medproj && python -m src.vector_store.main populate_combined --wikipedia-titles-file data/wiki_health_titles.txt --combined-collection-name %COMBINED_COLLECTION%"
 goto end
 
 :invalid_choice

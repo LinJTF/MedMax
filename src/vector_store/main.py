@@ -4,12 +4,13 @@ import argparse
 import os
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, List
 
 from .client import setup_qdrant_client, collection_exists, collection_has_data, create_collection
 from .loader import load_pubmed_data, format_pubmed_for_embedding
 from .embed import generate_openai_embeddings
 from .ingestion import upload_pubmed_to_qdrant
+from .wikipedia import fetch_wikipedia_records, load_wikipedia_titles_from_file
 
 
 def populate_qdrant(
@@ -110,8 +111,8 @@ Examples:
     
     parser.add_argument(
         "operation",
-        choices=["populate"],
-        help="Operation to perform (currently only 'populate' is supported)"
+        choices=["populate", "populate_wiki", "populate_combined"],
+        help="Operation to perform"
     )
     
     parser.add_argument(
@@ -138,15 +139,39 @@ Examples:
         action="store_true",
         help="Force reindexing even if collection already has data"
     )
+
+    # Wikipedia specific arguments
+    parser.add_argument(
+        "--wikipedia-titles",
+        type=str,
+        default=None,
+        help="Comma-separated list of Wikipedia page titles to ingest"
+    )
+    parser.add_argument(
+        "--wikipedia-titles-file",
+        type=str,
+        default=None,
+        help="Path to file (.txt, .json, .jsonl) containing Wikipedia titles"
+    )
+    parser.add_argument(
+        "--wiki-delay",
+        type=float,
+        default=0.5,
+        help="Delay between Wikipedia requests (seconds)"
+    )
+    parser.add_argument(
+        "--combined-collection-name",
+        type=str,
+        default="medmax_pubmed_wiki",
+        help="Collection name to use for combined PubMed + Wikipedia ingestion"
+    )
     
     args = parser.parse_args(argv)
     
-    # Check if data file exists
-    if not Path(args.data_path).exists():
-        print(f"Error: Data file not found at {args.data_path}")
-        return 1
-    
     if args.operation == "populate":
+        if not Path(args.data_path).exists():
+            print(f"Error: Data file not found at {args.data_path}")
+            return 1
         success = populate_qdrant(
             args.collection_name, 
             args.data_path, 
@@ -155,6 +180,78 @@ Examples:
         )
         if not success:
             return 1
+    elif args.operation == "populate_wiki":
+        titles: List[str] = []
+        if args.wikipedia_titles:
+            titles.extend([t.strip() for t in args.wikipedia_titles.split(",") if t.strip()])
+        if args.wikipedia_titles_file:
+            titles.extend(load_wikipedia_titles_from_file(args.wikipedia_titles_file))
+        if not titles:
+            print("No Wikipedia titles provided. Use --wikipedia-titles or --wikipedia-titles-file.")
+            return 1
+        print(f"Fetching {len(titles)} Wikipedia titles...")
+        wiki_records = fetch_wikipedia_records(titles, delay=args.wiki_delay)
+        if not wiki_records:
+            print("No Wikipedia records fetched.")
+            return 1
+        from .embed import generate_openai_embeddings
+        from .client import setup_qdrant_client, collection_exists, create_collection
+        texts = format_pubmed_for_embedding(wiki_records)
+        print("Generating embeddings for Wikipedia records...")
+        embeddings = generate_openai_embeddings(texts)
+        vector_size = len(embeddings[0]) if embeddings else 1536
+        client = setup_qdrant_client()
+        start_id = 0
+        if args.force_reindex and collection_exists(client, args.collection_name):
+            print(f"Recreating collection '{args.collection_name}' due to force reindex...")
+            client.delete_collection(args.collection_name)
+        if not collection_exists(client, args.collection_name):
+            create_collection(client, args.collection_name, vector_size)
+        else:
+            # Append mode: offset new IDs to avoid overwrite
+            try:
+                start_id = client.get_collection(args.collection_name).points_count
+                print(f"Appending to existing collection starting at ID offset {start_id}")
+            except Exception as e:
+                print(f"Could not determine existing point count, defaulting start_id=0: {e}")
+        upload_pubmed_to_qdrant(client, args.collection_name, wiki_records, embeddings, start_id=start_id)
+        print(f"Successfully populated Wikipedia-only data into collection '{args.collection_name}' with {len(wiki_records)} new records (start_id={start_id})")
+    elif args.operation == "populate_combined":
+        combined_collection = args.combined_collection_name
+        print("=== Combined PubMed + Wikipedia Ingestion ===")
+        print(f"Target combined collection: {combined_collection}")
+        pubmed_records = []
+        if Path(args.data_path).exists():
+            from .loader import load_pubmed_data
+            pubmed_records = load_pubmed_data(args.data_path, limit=args.limit)
+        else:
+            print(f"Warning: PubMed data file not found at {args.data_path}; proceeding with Wikipedia only.")
+        titles: List[str] = []
+        if args.wikipedia_titles:
+            titles.extend([t.strip() for t in args.wikipedia_titles.split(",") if t.strip()])
+        if args.wikipedia_titles_file:
+            titles.extend(load_wikipedia_titles_from_file(args.wikipedia_titles_file))
+        if not titles:
+            print("No Wikipedia titles provided for combined ingestion. Use --wikipedia-titles or --wikipedia-titles-file.")
+            return 1
+        wiki_records = fetch_wikipedia_records(titles, delay=args.wiki_delay)
+        combined_records = pubmed_records + wiki_records
+        if not combined_records:
+            print("No records (PubMed or Wikipedia) to ingest.")
+            return 1
+        print(f"Total combined records: {len(combined_records)} (PubMed: {len(pubmed_records)}, Wikipedia: {len(wiki_records)})")
+        from .embed import generate_openai_embeddings
+        texts = format_pubmed_for_embedding(combined_records)
+        embeddings = generate_openai_embeddings(texts)
+        from .client import setup_qdrant_client, collection_exists, create_collection
+        client = setup_qdrant_client()
+        if args.force_reindex and collection_exists(client, combined_collection):
+            print(f"Recreating collection '{combined_collection}' due to force reindex...")
+            client.delete_collection(combined_collection)
+        if not collection_exists(client, combined_collection):
+            create_collection(client, combined_collection, len(embeddings[0]) if embeddings else 1536)
+        upload_pubmed_to_qdrant(client, combined_collection, combined_records, embeddings)
+        print(f"Successfully populated combined collection '{combined_collection}' with {len(combined_records)} records")
     
     return 0
 
