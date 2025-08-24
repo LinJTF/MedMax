@@ -13,6 +13,19 @@ echo.
 echo Collection: %COLLECTION_NAME%
 echo Data source: %DATA_PATH%
 echo.
+echo Choose data source:
+echo [A] Original JSONL data (data/PubMed-compact/pubmedqa.jsonl)
+echo [B] New PubMedQA parquet files (data/*.parquet)
+echo.
+set /p data_choice="Enter data source choice (A/B): "
+
+if /i "%data_choice%"=="B" goto parquet_mode
+if /i "%data_choice%"=="b" goto parquet_mode
+
+REM Original JSONL mode
+echo.
+echo Using JSONL data source: %DATA_PATH%
+echo.
 echo Choose mode:
 echo [1] Test mode (10 records only)
 echo [2] Full dataset
@@ -30,6 +43,70 @@ if "%choice%"=="4" goto force_reindex
 if "%choice%"=="5" goto custom_collection
 if "%choice%"=="6" goto delete_and_custom
 goto invalid_choice
+
+:parquet_mode
+echo.
+echo Using PubMedQA parquet files (unlabeled + labeled + artificial)
+echo.
+echo Choose mode:
+echo [1] Test mode (10 records per dataset)
+echo [2] Full datasets
+echo [3] Custom limit per dataset
+echo [4] Force reindex (recreate collection)
+echo [5] Custom collection name
+echo.
+set /p choice="Enter choice (1-5): "
+
+if "%choice%"=="1" goto parquet_test_mode
+if "%choice%"=="2" goto parquet_full_dataset
+if "%choice%"=="3" goto parquet_custom_limit
+if "%choice%"=="4" goto parquet_force_reindex
+if "%choice%"=="5" goto parquet_custom_collection
+goto invalid_choice
+
+:parquet_test_mode
+echo Running in TEST MODE with 10 records per dataset...
+cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name %COLLECTION_NAME% --use-parquet --limit 10"
+goto end
+
+:parquet_full_dataset
+echo Running with FULL DATASETS...
+cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name %COLLECTION_NAME% --use-parquet"
+goto end
+
+:parquet_custom_limit
+set /p custom_limit="Enter number of records per dataset: "
+echo Running with !custom_limit! records per dataset...
+cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name %COLLECTION_NAME% --use-parquet --limit !custom_limit!"
+goto end
+
+:parquet_force_reindex
+echo Running with FORCE REINDEX (will recreate collection)...
+cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name %COLLECTION_NAME% --use-parquet --force-reindex"
+goto end
+
+:parquet_custom_collection
+set /p custom_collection="Enter collection name: "
+echo Choose sub-option:
+echo [a] Test mode (10 records per dataset)
+echo [b] Full datasets
+echo [c] Force reindex
+set /p sub_choice="Enter sub-choice (a-c): "
+
+if "!sub_choice!"=="a" (
+    echo Running with custom collection '!custom_collection!' - 10 records per dataset...
+    cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name !custom_collection! --use-parquet --limit 10"
+) else if "!sub_choice!"=="b" (
+    echo Running with custom collection '!custom_collection!' - full datasets...
+    cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name !custom_collection! --use-parquet"
+) else if "!sub_choice!"=="c" (
+    echo Running with custom collection '!custom_collection!' - force reindex...
+    cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name !custom_collection! --use-parquet --force-reindex"
+) else (
+    echo Invalid sub-choice. Using default test mode...
+    cmd /c "micromamba activate medproj && python -m src.vector_store.main populate --collection-name !custom_collection! --use-parquet --limit 10"
+)
+goto end
 
 :test_mode
 echo Running in TEST MODE with 10 records...

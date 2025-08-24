@@ -19,26 +19,29 @@ def upload_pubmed_to_qdrant(
     batch_size = 100  # Process in batches to avoid memory issues
     
     for idx, (record, embedding) in enumerate(zip(pubmed_records, embeddings)):
-        # Create searchable text content
+        # Create searchable text content - ONLY the context part for RAG retrieval
         contexts_text = " ".join(record['contexts'])
-        page_content = (
-            f"Question: {record['question']}\n"
-            f"Context: {contexts_text}\n"
-            f"Answer: {record['final_decision']}\n"
-            f"Detailed Explanation: {record['long_answer']}"
-        )
         
-        # Create payload with metadata
+        # Create payload with metadata (question, answer, etc. stored as metadata only)
         payload = {
-            "text": page_content,
+            "text": contexts_text,  # Only context for RAG retrieval
             "metadata": {
                 "question": record["question"],
                 "contexts": record["contexts"],
-                "final_decision": record["final_decision"],
                 "long_answer": record["long_answer"],
                 "record_id": idx
             },
         }
+        
+        # Add final_decision if available
+        if 'final_decision' in record:
+            payload["metadata"]["final_decision"] = record["final_decision"]
+        
+        # Add dataset source info if available
+        if 'dataset_source' in record:
+            payload["metadata"]["dataset_source"] = record["dataset_source"]
+        if 'pubid' in record:
+            payload["metadata"]["pubid"] = record["pubid"]
         
         points.append(PointStruct(id=idx, vector=embedding, payload=payload))
         
