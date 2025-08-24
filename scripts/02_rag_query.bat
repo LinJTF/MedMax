@@ -4,7 +4,7 @@ REM RAG system for MedMax
 
 echo Starting MedMax RAG System...
 echo.
-echo Collection: medmax_pubmed
+echo Collection: medmax_pubmed_full
 echo.
 echo Choose mode:
 echo [1] Interactive session (recommended)
@@ -22,23 +22,23 @@ goto invalid_choice
 
 :interactive
 echo Starting interactive RAG session...
-cmd /c "micromamba activate medproj && python -m src.rag.main interactive"
+cmd /c "micromamba activate medproj && python -m src.rag.main interactive --collection-name medmax_pubmed_full"
 goto end
 
 :single_query
 set /p question="Enter your medical question: "
 echo Running single query...
-cmd /c "micromamba activate medproj && python -m src.rag.main query ^"!question!^""
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"!question!^" --collection-name medmax_pubmed_full"
 goto end
 
 :test_questions
 echo Testing with sample medical questions...
 echo.
 echo Question 1: What is diabetes?
-cmd /c "micromamba activate medproj && python -m src.rag.main query ^"What is diabetes?^""
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"What is diabetes?^" --collection-name medmax_pubmed_full"
 echo.
 echo Question 2: Treatment options for hypertension?
-cmd /c "micromamba activate medproj && python -m src.rag.main query ^"What are the treatment options for hypertension?^""
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"What are the treatment options for hypertension?^" --collection-name medmax_pubmed_full"
 goto end
 
 :advanced_query
@@ -49,12 +49,12 @@ set /p model="OpenAI model (default gpt-4o-mini): "
 if "!model!"=="" set model=gpt-4o-mini
 
 echo Running advanced query...
-cmd /c "micromamba activate medproj && python -m src.rag.main query ^"!question!^" --top-k !top_k! --model !model! --engine-type enhanced --verbose"
+cmd /c "micromamba activate medproj && python -m src.rag.main query ^"!question!^" --top-k !top_k! --model !model! --engine-type enhanced --verbose --collection-name medmax_pubmed_full"
 goto end
 
 :invalid_choice
 echo Invalid choice. Starting interactive session...
-cmd /c "micromamba activate medproj && python -m src.rag.main interactive"
+cmd /c "micromamba activate medproj && python -m src.rag.main interactive --collection-name medmax_pubmed_full"
 
 :end
 if %errorlevel% neq 0 (

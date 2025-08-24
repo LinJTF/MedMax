@@ -7,30 +7,32 @@ from pathlib import Path
 from typing import Sequence
 
 from .client import setup_qdrant_client, collection_exists, collection_has_data, create_collection
-from .loader import load_pubmed_data, format_pubmed_for_embedding
+from .loader import load_pubmed_data, load_pubmedqa_parquet_data, format_pubmed_for_embedding
 from .embed import generate_openai_embeddings
 from .ingestion import upload_pubmed_to_qdrant
 
 
 def populate_qdrant(
     collection_name: str = "medmax_pubmed",
-    jsonl_path: str = "data/PubMed-compact/pubmedqa.jsonl",
+    data_source: str = None,
     limit: int = None,
-    force_reindex: bool = False
+    force_reindex: bool = False,
+    use_parquet: bool = False
 ):
     """Populate Qdrant with PubMed data."""
     print("=== MedMax Vector Store Creation ===")
     print(f"Collection name: {collection_name}")
-    print(f"Data source: {jsonl_path}")
-    if limit:
-        print(f"TEST MODE: Limited to {limit} records")
-    if force_reindex:
-        print(f"FORCE REINDEX: Will recreate collection even if data exists")
     
-    # Check if data file exists
-    if not os.path.exists(jsonl_path):
-        print(f"Error: Data file not found at {jsonl_path}")
-        return False
+    if use_parquet:
+        print("Data source: PubMedQA parquet files (unlabeled + labeled + artificial)")
+        data_source = "data"  # Directory containing parquet files
+    else:
+        print(f"Data source: {data_source}")
+        
+    if limit:
+        print(f"TEST MODE: Limited to {limit} records" + (" per dataset" if use_parquet else ""))
+    if force_reindex:
+        print("FORCE REINDEX: Will recreate collection even if data exists")
     
     # Setup Qdrant client
     print("\n1. Setting up Qdrant client...")
@@ -46,9 +48,22 @@ def populate_qdrant(
         print("Use --force-reindex flag to recreate the collection.")
         return True
     
-    # Load PubMed data
+    # Load data based on source type
     print("\n2. Loading PubMed data...")
-    pubmed_records = load_pubmed_data(jsonl_path, limit=limit)
+    if use_parquet:
+        pubmed_records, stats = load_pubmedqa_parquet_data(
+            data_dir=data_source,
+            limit_per_dataset=limit
+        )
+        if "error" in stats:
+            print("Failed to load parquet data. Exiting.")
+            return False
+    else:
+        # Check if data file exists
+        if not os.path.exists(data_source):
+            print(f"Error: Data file not found at {data_source}")
+            return False
+        pubmed_records = load_pubmed_data(data_source, limit=limit)
     
     if not pubmed_records:
         print("No valid records found. Exiting.")
@@ -123,14 +138,20 @@ Examples:
     parser.add_argument(
         "--data-path",
         default="data/PubMed-compact/pubmedqa.jsonl",
-        help="Path to PubMed JSONL data file"
+        help="Path to PubMed JSONL data file (ignored if --use-parquet is specified)"
+    )
+    
+    parser.add_argument(
+        "--use-parquet",
+        action="store_true",
+        help="Use PubMedQA parquet files instead of JSONL (loads from data/ directory)"
     )
     
     parser.add_argument(
         "--limit",
         type=int,
         default=None,
-        help="Limit number of records to process (useful for testing, e.g., --limit 10)"
+        help="Limit number of records to process (per dataset if using parquet)"
     )
     
     parser.add_argument(
@@ -141,17 +162,34 @@ Examples:
     
     args = parser.parse_args(argv)
     
-    # Check if data file exists
-    if not Path(args.data_path).exists():
-        print(f"Error: Data file not found at {args.data_path}")
-        return 1
+    # Determine data source
+    if args.use_parquet:
+        # Check if parquet files exist
+        data_dir = Path("data")
+        required_files = [
+            data_dir / "pqa_unlabeled_train.parquet",
+            data_dir / "pqa_labeled_train.parquet", 
+            data_dir / "pqa_artificial_train.parquet"
+        ]
+        missing_files = [str(f) for f in required_files if not f.exists()]
+        if missing_files:
+            print(f"Error: Missing parquet files: {missing_files}")
+            return 1
+        data_source = str(data_dir)
+    else:
+        # Check if JSONL file exists
+        if not Path(args.data_path).exists():
+            print(f"Error: Data file not found at {args.data_path}")
+            return 1
+        data_source = args.data_path
     
     if args.operation == "populate":
         success = populate_qdrant(
             args.collection_name, 
-            args.data_path, 
+            data_source, 
             args.limit,
-            args.force_reindex
+            args.force_reindex,
+            args.use_parquet
         )
         if not success:
             return 1

@@ -313,8 +313,8 @@ Examples:
     
     parser.add_argument(
         "--collection-name",
-        default="medmax_pubmed",
-        help="Qdrant collection name to query (default: medmax_pubmed)"
+        default="medmax_pubmed_full",
+        help="Qdrant collection name to query (default: medmax_pubmed_full)"
     )
     
     parser.add_argument(
@@ -343,6 +343,13 @@ Examples:
         help="Show detailed source information"
     )
     
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.3,
+        help="Similarity score threshold for retrieval (default: 0.3)"
+    )
+    
     args = parser.parse_args(argv)
     
 
@@ -355,7 +362,7 @@ Examples:
 
         if args.mode == "rag":
             configure_global_settings()
-            vector_store, index = setup_rag_client(args.collection_name)
+            _, index = setup_rag_client(args.collection_name)
             if args.engine_type == "simple":
                 query_engine = create_simple_query_engine(index, top_k=args.top_k)
             elif args.engine_type == "enhanced":
@@ -364,6 +371,7 @@ Examples:
                     collection_name=args.collection_name,
                     top_k=args.top_k, 
                     llm_model=args.model,
+                    score_threshold=args.threshold,
                     verbose=args.verbose
                 )
             else:
@@ -371,7 +379,8 @@ Examples:
                     index,
                     collection_name=args.collection_name,
                     top_k=args.top_k,
-                    llm_model=args.model
+                    llm_model=args.model,
+                    score_threshold=args.threshold
                 )
             query_engine = patch_query_engine_with_tracing(query_engine)
             print("RAG system ready!")
