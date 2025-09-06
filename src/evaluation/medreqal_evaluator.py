@@ -445,6 +445,31 @@ class MedREQALEvaluator:
                 answer = response.text if hasattr(response, "text") else str(response)
                 # Use PubMedQA-specific verdict extraction
                 verdict = extract_pubmedqa_verdict_from_response(answer)
+                
+                # Add cost tracking for PubMedQA zero-shot evaluation
+                token_usage = get_token_usage(prompt, answer, self.llm_model)
+                costs = calculate_cost(
+                    token_usage['input_tokens'],
+                    token_usage['output_tokens'],
+                    self.llm_model
+                )
+
+                update_current_generation(
+                    model=self.llm_model,
+                    input_text=prompt,
+                    output_text=answer,
+                    input_tokens=token_usage["input_tokens"],
+                    output_tokens=token_usage["output_tokens"],
+                    input_cost=costs["input_cost"],
+                    output_cost=costs["output_cost"],
+                    metadata={
+                        "evaluation_mode": "zero_shot",
+                        "dataset_type": "pubmedqa",
+                        "engine_type": self.engine_type,
+                        "collection_name": self.collection_name,
+                    }
+                )
+                
             except Exception as e:
                 print(f"Error in zero-shot generation: {e}")
                 answer = "ERROR"
