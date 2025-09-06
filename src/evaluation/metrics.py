@@ -61,6 +61,31 @@ def extract_verdict_from_response(response: str) -> str:
             return 'NOT ENOUGH INFORMATION'
 
 
+@observe()
+def extract_pubmedqa_verdict_from_response(response: str) -> str:
+    """Extract verdict from PubMedQA response text and map to yes/no/maybe format."""
+    response = response.upper().strip()
+    
+    # Look for explicit PubMedQA verdicts first
+    if 'YES' in response[:50]:  # Check first 50 characters for clear answer
+        return 'yes'
+    elif 'NO' in response[:50]:
+        return 'no'
+    elif 'MAYBE' in response[:50]:
+        return 'maybe'
+    
+    # Look for supporting/refuting language
+    elif any(word in response for word in ['SUPPORTED', 'BENEFICIAL', 'EFFECTIVE', 'IMPROVES', 'HELPS', 'POSITIVE']):
+        return 'yes'
+    elif any(word in response for word in ['REFUTED', 'HARMFUL', 'INEFFECTIVE', 'WORSENS', 'NEGATIVE', 'INCREASES RISK']):
+        return 'no'
+    elif any(word in response for word in ['INSUFFICIENT', 'UNCLEAR', 'UNCERTAIN', 'NOT ENOUGH', 'INCONCLUSIVE']):
+        return 'maybe'
+    else:
+        # Default fallback - if unclear, return maybe
+        return 'maybe'
+
+
 def calculate_accuracy(true_labels: List[str], predicted_labels: List[str]) -> float:
     """Calculate accuracy score."""
     # Normalize labels
