@@ -6,25 +6,36 @@ the results with zero-shot performance reported in academic literature.
 """
 
 import os
+import sys
 import argparse
 from pathlib import Path
 from datetime import datetime
 import json
 
+# Add the project root to Python path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
 from langfuse import observe
-from .medreqal_evaluator import MedREQALEvaluator
-from .metrics import compare_with_baseline
+from src.evaluation.medreqal_evaluator import MedREQALEvaluator
+from src.evaluation.metrics import compare_with_baseline
 
 
 @observe(name="Evaluation flow")
 def main():
     """Main evaluation function."""
-    parser = argparse.ArgumentParser(description="Evaluate RAG system on MedREQAL dataset")
+    parser = argparse.ArgumentParser(description="Evaluate RAG system on MedREQAL or PubMedQA dataset")
     parser.add_argument(
-        "--csv_path", 
+        "--data_path", 
         type=str, 
         required=True,
-        help="Path to MedREQAL CSV file"
+        help="Path to dataset file (CSV for MedREQAL, parquet for PubMedQA)"
+    )
+    parser.add_argument(
+        "--dataset_type",
+        type=str,
+        choices=["medreqal", "pubmedqa"],
+        required=True,
+        help="Type of dataset to evaluate"
     )
     parser.add_argument(
         "--output_dir", 
@@ -35,7 +46,7 @@ def main():
     parser.add_argument(
         "--collection_name", 
         type=str, 
-        default="medmax_pubmed",
+        default="medmax_pubmed_full",
         help="Qdrant collection name"
     )
     parser.add_argument(
@@ -88,33 +99,42 @@ def main():
     # Generate timestamp for unique results
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
-    # Set output file prefix based on mode
-    result_prefix = "rag" if args.mode == "rag" else "zero_shot"
+    # Set output file prefix based on mode and dataset
+    result_prefix = f"{args.dataset_type}_{args.mode}"
 
-    # Initialize evaluator with mode and llm_model
+    # Initialize evaluator with dataset type
     evaluator = MedREQALEvaluator(
         collection_name=args.collection_name,
         engine_type=args.engine_type,
         delay_between_queries=args.delay,
         mode=args.mode,
-        llm_model=args.llm_model
+        llm_model=args.llm_model,
+        dataset_type=args.dataset_type
     )
 
-    print(f"Starting MedREQAL evaluation in {args.mode.upper()} mode...")
-    print(f"Dataset: {args.csv_path}")
+    print(f"Starting {args.dataset_type.upper()} evaluation in {args.mode.upper()} mode...")
+    print(f"Dataset: {args.data_path}")
     print(f"Output: {output_dir}")
     print(f"Collection: {args.collection_name}")
     if args.limit:
         print(f"Limit: {args.limit} questions")
 
     try:
-        _, metrics = evaluator.evaluate_dataset(
-            csv_path=args.csv_path,
-            output_path=output_dir / f"{result_prefix}_results_{timestamp}.csv",
-            limit=args.limit
-        )
-
-        evaluator.print_summary(metrics)
+        # Route to appropriate evaluation method based on dataset type
+        if args.dataset_type == "pubmedqa":
+            _, metrics = evaluator.evaluate_pubmedqa_dataset(
+                parquet_path=args.data_path,
+                output_path=output_dir / f"{result_prefix}_results_{timestamp}.csv",
+                limit=args.limit
+            )
+            evaluator.print_pubmedqa_summary(metrics)
+        else:  # medreqal
+            _, metrics = evaluator.evaluate_dataset(
+                csv_path=args.data_path,
+                output_path=output_dir / f"{result_prefix}_results_{timestamp}.csv",
+                limit=args.limit
+            )
+            evaluator.print_summary(metrics)
 
         metrics_file = output_dir / f"{result_prefix}_metrics_{timestamp}.json"
         with open(metrics_file, 'w') as f:
