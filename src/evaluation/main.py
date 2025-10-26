@@ -87,7 +87,13 @@ def main():
         "--llm_model",
         type=str,
         default="gpt-4o-mini",
-        help="LLM model name for zero-shot mode"
+        help="LLM model name (e.g., gpt-4o-mini, mistral:7b)"
+    )
+    
+    parser.add_argument(
+        "--use_ollama",
+        action="store_true",
+        help="Use Ollama for local models instead of OpenAI"
     )
     
     args = parser.parse_args()
@@ -109,7 +115,8 @@ def main():
         delay_between_queries=args.delay,
         mode=args.mode,
         llm_model=args.llm_model,
-        dataset_type=args.dataset_type
+        dataset_type=args.dataset_type,
+        use_ollama=args.use_ollama
     )
 
     print(f"Starting {args.dataset_type.upper()} evaluation in {args.mode.upper()} mode...")
