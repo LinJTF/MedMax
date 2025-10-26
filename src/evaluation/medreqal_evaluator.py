@@ -32,6 +32,7 @@ class MedREQALEvaluator:
         mode: str = "rag",
         llm_model: str = "gpt-4o-mini",
         dataset_type: str = "medreqal",  # New parameter
+        use_ollama: bool = False,  # New parameter for Ollama support
     ):
         """Initialize evaluator."""
         self.collection_name = collection_name
@@ -42,6 +43,7 @@ class MedREQALEvaluator:
         self.mode = mode
         self.llm_model = llm_model
         self.dataset_type = dataset_type  # Track which dataset we're evaluating
+        self.use_ollama = use_ollama  # Store Ollama preference
         
     def setup_rag_system(self):
         """Setup RAG system for evaluation."""
@@ -161,7 +163,7 @@ class MedREQALEvaluator:
         })
         
         try:
-            llm = setup_llm(model=self.llm_model)
+            llm = setup_llm(model=self.llm_model, use_ollama=self.use_ollama)
             response = llm.complete(prompt)
             answer = response.text if hasattr(response, "text") else str(response)
             verdict = extract_verdict_from_response(answer)
@@ -440,7 +442,7 @@ class MedREQALEvaluator:
             )
             
             try:
-                llm = setup_llm(model=self.llm_model)
+                llm = setup_llm(model=self.llm_model, use_ollama=self.use_ollama)
                 response = llm.complete(prompt)
                 answer = response.text if hasattr(response, "text") else str(response)
                 # Use PubMedQA-specific verdict extraction
