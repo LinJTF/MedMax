@@ -12,21 +12,15 @@ from llama_index.core import Settings
 
 load_dotenv()
 
-# Ollama model configurations
-# Modelos testados e compatíveis com ~16GB RAM
-# Context window values verified with `ollama show <model>`:
-# - mistral:7b: 32K tokens (verified: 32768)
-# - qwen2.5:7b: 32K tokens (verified: 32768)
-# Note: phi3:mini removed - requires 50GB RAM for 128K context window
 OLLAMA_MODELS = {
     "mistral:7b": {
         "name": "mistral:7b",
-        "context_window": 32768,  # 32K tokens
+        "context_window": 32768,
         "description": "Mistral 7B - Fast and efficient (Recommended)"
     },
     "qwen2.5:7b": {
         "name": "qwen2.5:7b",
-        "context_window": 32768,  # 32K tokens
+        "context_window": 32768,
         "description": "Qwen 2.5 7B - Strong analytical capabilities"
     }
 }
