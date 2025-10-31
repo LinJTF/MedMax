@@ -1,12 +1,14 @@
-"""LLM models configuration for RAG system (OpenAI + Ollama)."""
+"""LLM models configuration for RAG system (OpenAI + Ollama + HuggingFace)."""
 
 import os
+import torch
 from typing import Optional, Union
 from dotenv import load_dotenv
 
 # LlamaIndex imports
 from llama_index.llms.openai import OpenAI
 from llama_index.llms.ollama import Ollama
+from llama_index.llms.huggingface import HuggingFaceLLM
 from llama_index.embeddings.openai import OpenAIEmbedding
 from llama_index.core import Settings
 
@@ -25,28 +27,100 @@ OLLAMA_MODELS = {
     }
 }
 
+HUGGINGFACE_MODELS = {
+    "mistral-7b-instruct": {
+        "model_name": "mistralai/Mistral-7B-Instruct-v0.2",
+        "context_window": 32768,
+        "max_new_tokens": 512,
+        "description": "Mistral 7B Instruct - HuggingFace (Local GPU)"
+    },
+    "qwen2.5-7b-instruct": {
+        "model_name": "Qwen/Qwen2.5-7B-Instruct",
+        "context_window": 32768,
+        "max_new_tokens": 512,
+        "description": "Qwen 2.5 7B Instruct - HuggingFace (Local GPU)"
+    },
+    "llama3-8b-instruct": {
+        "model_name": "meta-llama/Meta-Llama-3-8B-Instruct",
+        "context_window": 8192,
+        "max_new_tokens": 512,
+        "description": "Llama 3 8B Instruct - HuggingFace (Local GPU)"
+    }
+}
+
 
 def setup_llm(
     model: str = "gpt-4o-mini",
     temperature: float = 0.1,
     max_tokens: Optional[int] = None,
     use_ollama: bool = False,
-    ollama_base_url: str = "http://localhost:11434"
-) -> Union[OpenAI, Ollama]:
+    use_huggingface: bool = False,
+    ollama_base_url: str = "http://localhost:11434",
+    device: str = "auto"
+) -> Union[OpenAI, Ollama, HuggingFaceLLM]:
     """
-    Setup LLM for RAG responses (OpenAI or Ollama).
+    Setup LLM for RAG responses (OpenAI, Ollama, or HuggingFace).
     
     Args:
-        model: Model name (e.g., "gpt-4o-mini" or "llama3.1:8b")
+        model: Model name (e.g., "gpt-4o-mini", "mistral:7b", or "mistral-7b-instruct")
         temperature: Temperature for generation
         max_tokens: Maximum tokens to generate
         use_ollama: If True, use Ollama instead of OpenAI
+        use_huggingface: If True, use HuggingFace local models
         ollama_base_url: Ollama server URL (default: http://localhost:11434)
+        device: Device for HuggingFace models ("cuda", "cpu", or "auto")
     
     Returns:
-        Configured LLM instance (OpenAI or Ollama)
+        Configured LLM instance (OpenAI, Ollama, or HuggingFace)
     """
-    if use_ollama:
+    if use_huggingface:
+        # Use HuggingFace for local GPU models
+        if model in HUGGINGFACE_MODELS:
+            model_config = HUGGINGFACE_MODELS[model]
+            model_name = model_config["model_name"]
+            context_window = model_config["context_window"]
+            max_new_tokens = model_config["max_new_tokens"]
+            print(f"[HuggingFace] Loading model: {model_name}")
+            print(f"   {model_config['description']}")
+        else:
+            # Custom HuggingFace model
+            model_name = model
+            context_window = 4096
+            max_new_tokens = 512
+            print(f"[Warning] Using custom HuggingFace model: {model_name}")
+        
+        # Detect device
+        if device == "auto":
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        print(f"[HuggingFace] Using device: {device}")
+        
+        if device == "cuda":
+            print(f"[HuggingFace] GPU: {torch.cuda.get_device_name(0)}")
+            print(f"[HuggingFace] CUDA Version: {torch.version.cuda}")
+        
+        # Create HuggingFace LLM with proper configuration
+        llm = HuggingFaceLLM(
+            model_name=model_name,
+            tokenizer_name=model_name,
+            context_window=context_window,
+            max_new_tokens=max_new_tokens,
+            generate_kwargs={
+                "temperature": temperature,
+                "do_sample": True if temperature > 0 else False,
+            },
+            device_map=device,
+            # Use 4-bit quantization to save GPU memory
+            model_kwargs={
+                "torch_dtype": torch.float16 if device == "cuda" else torch.float32,
+                "load_in_4bit": True if device == "cuda" else False,
+            }
+        )
+        
+        print(f"[OK] HuggingFace LLM configured: {model_name} (temp: {temperature}, device: {device})")
+        return llm
+        
+    elif use_ollama:
         # Use Ollama for local models
         if model in OLLAMA_MODELS:
             model_name = OLLAMA_MODELS[model]["name"]
@@ -101,8 +175,25 @@ def setup_embedding_model(model: str = "text-embedding-3-small") -> OpenAIEmbedd
     return embed_model
 
 
-def configure_global_settings():
-    """Configure LlamaIndex global settings."""
-    Settings.llm = setup_llm()
+def configure_global_settings(
+    llm_model: str = "gpt-4o-mini",
+    use_ollama: bool = False,
+    use_huggingface: bool = False
+):
+    """
+    Configure LlamaIndex global settings with specific model.
+    
+    Args:
+        llm_model: Model name to use
+        use_ollama: Whether to use Ollama
+        use_huggingface: Whether to use HuggingFace
+    """
+    print(f"[configure_global_settings] Configuring with model={llm_model}, ollama={use_ollama}, hf={use_huggingface}")
+    
+    Settings.llm = setup_llm(
+        model=llm_model,
+        use_ollama=use_ollama,
+        use_huggingface=use_huggingface
+    )
     Settings.embed_model = setup_embedding_model()
     print("Global LlamaIndex settings configured")
