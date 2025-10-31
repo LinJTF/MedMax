@@ -1,8 +1,5 @@
 """
-Main evaluation script for comparing RAG vs Zero-shot performance on MedREQAL dataset.
-
-This script evaluates the RAG system against the MedREQAL benchmark and compares
-the results with zero-shot performance reported in academic literature.
+Main evaluation script for RAG vs Zero-shot performance evaluation.
 """
 
 import os
@@ -13,102 +10,70 @@ from datetime import datetime
 import json
 
 # Add the project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
-from langfuse import observe
+# Import AFTER path setup to avoid circular imports
 from src.evaluation.medreqal_evaluator import MedREQALEvaluator
 from src.evaluation.metrics import compare_with_baseline
 
 
-@observe(name="Evaluation flow")
-def main():
-    """Main evaluation function."""
-    parser = argparse.ArgumentParser(description="Evaluate RAG system on MedREQAL or PubMedQA dataset")
-    parser.add_argument(
-        "--data_path", 
-        type=str, 
-        required=True,
-        help="Path to dataset file (CSV for MedREQAL, parquet for PubMedQA)"
-    )
-    parser.add_argument(
-        "--dataset_type",
-        type=str,
-        choices=["medreqal", "pubmedqa"],
-        required=True,
-        help="Type of dataset to evaluate"
-    )
-    parser.add_argument(
-        "--output_dir", 
-        type=str, 
-        default="evaluation_results",
-        help="Directory to save evaluation results"
-    )
-    parser.add_argument(
-        "--collection_name", 
-        type=str, 
-        default="medmax_pubmed_full",
-        help="Qdrant collection name"
-    )
-    parser.add_argument(
-        "--limit", 
-        type=int, 
-        default=None,
-        help="Limit number of questions to evaluate (for testing)"
-    )
-    parser.add_argument(
-        "--engine_type", 
-        type=str, 
-        choices=["simple", "standard", "enhanced"],
-        default="standard",
-        help="Type of query engine to use (default: standard)"
-    )
-    parser.add_argument(
-        "--delay", 
-        type=float, 
-        default=1.0,
-        help="Delay between queries in seconds"
-    )
-    parser.add_argument(
-        "--baseline_accuracy", 
-        type=float, 
-        default=None,
-        help="Baseline accuracy for comparison (e.g., zero-shot performance)"
+def parse_arguments():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="Evaluate RAG system on MedREQAL or PubMedQA dataset"
     )
     
-    parser.add_argument(
-    "--mode",
-    type=str,
-    choices=["rag", "zero_shot"],
-    default="rag",
-    help="Evaluation mode: rag or zero_shot"
-    )
+    # Dataset arguments
+    parser.add_argument("--data_path", type=str, required=True)
+    parser.add_argument("--dataset_type", type=str, choices=["medreqal", "pubmedqa"], required=True)
+    parser.add_argument("--output_dir", type=str, default="evaluation_results")
     
-    parser.add_argument(
-        "--llm_model",
-        type=str,
-        default="gpt-4o-mini",
-        help="LLM model name (e.g., gpt-4o-mini, mistral:7b)"
-    )
+    # Qdrant arguments
+    parser.add_argument("--collection_name", type=str, default="medmax_pubmed_full")
     
-    parser.add_argument(
-        "--use_ollama",
-        action="store_true",
-        help="Use Ollama for local models instead of OpenAI"
-    )
+    # Evaluation arguments
+    parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--engine_type", type=str, choices=["simple", "standard", "enhanced"], default="standard")
+    parser.add_argument("--delay", type=float, default=1.0)
+    parser.add_argument("--mode", type=str, choices=["rag", "zero_shot"], default="rag")
     
-    args = parser.parse_args()
+    # Model arguments
+    parser.add_argument("--llm_model", type=str, default="gpt-4o-mini")
+    parser.add_argument("--use_ollama", action="store_true")
+    parser.add_argument("--use_huggingface", action="store_true")
+    
+    # Comparison arguments
+    parser.add_argument("--baseline_accuracy", type=float, default=None)
+    
+    return parser.parse_args()
+
+
+def run_evaluation(args):
+    """Run the evaluation with given arguments."""
+    print(f"\n{'='*70}")
+    print(f"STARTING EVALUATION")
+    print(f"{'='*70}")
+    print(f"Dataset: {args.dataset_type}")
+    print(f"Mode: {args.mode}")
+    print(f"Model: {args.llm_model}")
+    print(f"Ollama: {args.use_ollama}")
+    print(f"HuggingFace: {args.use_huggingface}")
+    if args.limit:
+        print(f"Limit: {args.limit} questions")
+    print(f"{'='*70}\n")
     
     # Create output directory
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=True)
     
-    # Generate timestamp for unique results
+    # Generate timestamp
+    model_name_clean = args.llm_model.replace(":", "_").replace("-", "_").replace(".", "_")
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    # Set output file prefix based on mode and dataset
-    result_prefix = f"{args.dataset_type}_{args.mode}"
+    result_prefix = f"{model_name_clean}_{args.dataset_type}_{args.mode}"
 
-    # Initialize evaluator with dataset type
+    # Initialize evaluator
     evaluator = MedREQALEvaluator(
         collection_name=args.collection_name,
         engine_type=args.engine_type,
@@ -116,18 +81,12 @@ def main():
         mode=args.mode,
         llm_model=args.llm_model,
         dataset_type=args.dataset_type,
-        use_ollama=args.use_ollama
+        use_ollama=args.use_ollama,
+        use_huggingface=args.use_huggingface
     )
 
-    print(f"Starting {args.dataset_type.upper()} evaluation in {args.mode.upper()} mode...")
-    print(f"Dataset: {args.data_path}")
-    print(f"Output: {output_dir}")
-    print(f"Collection: {args.collection_name}")
-    if args.limit:
-        print(f"Limit: {args.limit} questions")
-
+    # Run evaluation
     try:
-        # Route to appropriate evaluation method based on dataset type
         if args.dataset_type == "pubmedqa":
             _, metrics = evaluator.evaluate_pubmedqa_dataset(
                 parquet_path=args.data_path,
@@ -143,39 +102,42 @@ def main():
             )
             evaluator.print_summary(metrics)
 
+        # Save metrics
         metrics_file = output_dir / f"{result_prefix}_metrics_{timestamp}.json"
         with open(metrics_file, 'w') as f:
             json.dump(metrics, f, indent=2, default=str)
-        print(f"\nDetailed metrics saved to {metrics_file}")
+        print(f"\n Metrics saved to {metrics_file}")
 
-        if args.baseline_accuracy:
-            print(f"\nComparing with baseline accuracy: {args.baseline_accuracy:.3f}")
-            if 'overall' in metrics:
-                eval_accuracy = metrics['overall']['accuracy']
-                comparison = compare_with_baseline(eval_accuracy, args.baseline_accuracy)
-                print("Comparison Results:")
-                print(f"   Evaluated Accuracy: {eval_accuracy:.3f}")
-                print(f"   Baseline Accuracy: {args.baseline_accuracy:.3f}")
-                print(f"   Improvement: {comparison['improvement']:.3f}")
-                print(f"   Relative Improvement: {comparison['relative_improvement']:.1f}%")
-                if comparison['improvement'] > 0:
-                    print(f"{args.mode.upper()} system outperforms baseline!")
-                elif comparison['improvement'] < 0:
-                    print(f"{args.mode.upper()} system underperforms baseline")
-                else:
-                    print(f"{args.mode.upper()} system matches baseline performance")
-                comparison_file = output_dir / f"baseline_comparison_{timestamp}.json"
-                with open(comparison_file, 'w') as f:
-                    json.dump(comparison, f, indent=2)
-                print(f"Comparison saved to {comparison_file}")
+        # Compare with baseline if provided
+        if args.baseline_accuracy and 'overall' in metrics:
+            eval_accuracy = metrics['overall']['accuracy']
+            comparison = compare_with_baseline(eval_accuracy, args.baseline_accuracy)
+            
+            print(f"\nBaseline Comparison:")
+            print(f"  Evaluated: {eval_accuracy:.3f}")
+            print(f"  Baseline: {args.baseline_accuracy:.3f}")
+            print(f"  Improvement: {comparison['improvement']:.3f} ({comparison['relative_improvement']:.1f}%)")
+            
+            comparison_file = output_dir / f"baseline_comparison_{timestamp}.json"
+            with open(comparison_file, 'w') as f:
+                json.dump(comparison, f, indent=2)
 
-        print("\nEvaluation completed successfully!")
-        print(f"Results available in: {output_dir}")
+        print(f"\n Evaluation completed successfully!")
+        print(f"Results: {output_dir}\n")
+        return 0
 
     except Exception as e:
-        print(f" Evaluation failed: {e}")
-        raise
+        print(f"\n Evaluation failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
+
+def main():
+    """Main entry point."""
+    args = parse_arguments()
+    return run_evaluation(args)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
