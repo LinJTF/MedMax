@@ -32,48 +32,11 @@ Answer:"""
 )
 
 
-def create_query_engine(
-    index: VectorStoreIndex,
-    retriever: Optional[QdrantRetriever] = None,
-    top_k: int = 5,
-    response_mode: str = "compact",
-    llm_model: str = "gpt-4o-mini",
-    **kwargs: Any
-) -> RetrieverQueryEngine:
-    """Create a query engine for medical Q&A."""
-    
-    # Setup LLM
-    llm = setup_llm(model=llm_model)
-    
-    # Use custom retriever if provided, otherwise use index retriever
-    if retriever is not None:
-        print(f"Using custom Qdrant retriever")
-        final_retriever = retriever
-    else:
-        print(f"Using index retriever with top_k={top_k}")
-        final_retriever = index.as_retriever(similarity_top_k=top_k)
-    
-    # Setup response synthesizer with custom prompt
-    response_synthesizer = get_response_synthesizer(
-        response_mode=ResponseMode.COMPACT if response_mode == "compact" else ResponseMode.TREE_SUMMARIZE,
-        text_qa_template=MEDICAL_QA_PROMPT,
-        llm=llm,
-    )
-    
-    # Create query engine
-    query_engine = RetrieverQueryEngine(
-        retriever=final_retriever,
-        response_synthesizer=response_synthesizer,
-    )
-    
-    print(f"Query engine created with {llm_model} and {response_mode} mode")
-    return query_engine
-
-
 def create_standard_query_engine(
     index: VectorStoreIndex,
     collection_name: str = "medmax_pubmed",
     top_k: int = 5,
+    llm: Optional[Any] = None,
     llm_model: str = "gpt-4o-mini",
     score_threshold: float = 0.7,
     **kwargs: Any
@@ -85,7 +48,8 @@ def create_standard_query_engine(
     from .retriever import create_custom_retriever
     
     # Setup LLM
-    llm = setup_llm(model=llm_model)
+    if llm is None:
+        llm = setup_llm(model=llm_model)
     
     # Setup custom Qdrant retriever
     qdrant_client = setup_qdrant_client()
@@ -115,11 +79,12 @@ def create_standard_query_engine(
 
 def create_simple_query_engine(
     index: VectorStoreIndex,
+    llm: Optional[Any] = None,
     **kwargs: Any
 ) -> Any:
     """Create a simple query engine for quick testing."""
-    # Setup LLM
-    llm = setup_llm()
+    if llm is None:
+        llm = setup_llm()
     
     # Create simple query engine with proper configurations
     query_engine = index.as_query_engine(
@@ -139,6 +104,7 @@ def create_enhanced_query_engine(
     index: VectorStoreIndex,
     collection_name: str = "medmax_pubmed",
     top_k: int = 10,
+    llm: Optional[Any] = None,
     llm_model: str = "gpt-4o-mini",
     score_threshold: float = 0.6,
     response_mode: str = "tree_summarize",
@@ -152,7 +118,8 @@ def create_enhanced_query_engine(
     from .retriever import create_custom_retriever
     
     # Setup LLM
-    llm = setup_llm(model=llm_model)
+    if llm is None:
+        llm = setup_llm(model=llm_model)
     
     # Setup custom Qdrant retriever with more lenient threshold
     qdrant_client = setup_qdrant_client()
@@ -182,27 +149,4 @@ def create_enhanced_query_engine(
     )
     
     print(f"Enhanced query engine created (top_k={top_k}, threshold={score_threshold}, mode={response_mode})")
-    return query_engine
-
-def enhanced_query_engine(
-    index: VectorStoreIndex,
-    custom_prompt: Optional[str] = None,
-    **kwargs: Any
-) -> Any:
-    """Create enhanced query engine with custom configurations (legacy compatibility)."""
-    
-    # Use custom prompt if provided
-    prompt_template = MEDICAL_QA_PROMPT
-    if custom_prompt:
-        prompt_template = PromptTemplate(custom_prompt)
-    
-    # Setup with advanced configurations
-    query_engine = index.as_query_engine(
-        text_qa_template=prompt_template,
-        similarity_top_k=kwargs.get('top_k', 5),
-        response_mode=kwargs.get('response_mode', 'compact'),
-        verbose=kwargs.get('verbose', True),
-    )
-    
-    print("Enhanced query engine created with custom configurations (legacy)")
     return query_engine

@@ -187,7 +187,7 @@ def create_confusion_matrix_data(true_labels: List[str], predicted_labels: List[
     pred_normalized = [normalize_verdict(label) for label in predicted_labels]
     
     # Get unique labels
-    unique_labels = sorted(list(set(true_normalized + pred_normalized)))
+    unique_labels = sorted(set(true_normalized + pred_normalized))
     
     # Create confusion matrix
     cm = confusion_matrix(true_normalized, pred_normalized, labels=unique_labels)
