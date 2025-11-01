@@ -176,6 +176,7 @@ def setup_embedding_model(model: str = "text-embedding-3-small") -> OpenAIEmbedd
 
 
 def configure_global_settings(
+    llm: Optional[Union[OpenAI, Ollama, HuggingFaceLLM]] = None,
     llm_model: str = "gpt-4o-mini",
     use_ollama: bool = False,
     use_huggingface: bool = False
@@ -184,16 +185,22 @@ def configure_global_settings(
     Configure LlamaIndex global settings with specific model.
     
     Args:
+        llm: Pre-loaded LLM instance. If provided, uses this instead of creating a new one.
         llm_model: Model name to use
         use_ollama: Whether to use Ollama
         use_huggingface: Whether to use HuggingFace
     """
     print(f"[configure_global_settings] Configuring with model={llm_model}, ollama={use_ollama}, hf={use_huggingface}")
-    
-    Settings.llm = setup_llm(
-        model=llm_model,
-        use_ollama=use_ollama,
-        use_huggingface=use_huggingface
-    )
+    if llm is not None:
+        print("Using provided LLM instance for global settings")
+        Settings.llm = llm
+    else:
+        print("Creating new LLM instance for global settings")
+        Settings.llm = setup_llm(
+            model=llm_model,
+            use_ollama=use_ollama,
+            use_huggingface=use_huggingface
+        )
+
     Settings.embed_model = setup_embedding_model()
     print("Global LlamaIndex settings configured")

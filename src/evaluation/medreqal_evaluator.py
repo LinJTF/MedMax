@@ -46,7 +46,7 @@ class MedREQALEvaluator:
         self.use_huggingface = use_huggingface
         
         self.llm = None
-        if self.mode == "zero_shot":
+        if self.mode == "zero_shot" or self.mode == "rag":
             print(f"\n{'='*70}")
             print(f" INITIALIZING {llm_model.upper()} FOR ZERO-SHOT EVALUATION")
             print(f"{'='*70}")
@@ -67,6 +67,7 @@ class MedREQALEvaluator:
         """Setup RAG system for evaluation."""
         print(f"Setting up RAG system with model={self.llm_model}, ollama={self.use_ollama}, hf={self.use_huggingface}...")
         configure_global_settings(
+            llm=self.llm,
             llm_model=self.llm_model,
             use_ollama=self.use_ollama,
             use_huggingface=self.use_huggingface
@@ -74,14 +75,24 @@ class MedREQALEvaluator:
         _, index = setup_rag_client(self.collection_name)
         
         if self.engine_type == "simple":
-            self.query_engine = create_simple_query_engine(index, top_k=5)
+            self.query_engine = create_simple_query_engine(
+                index,
+                top_k=5,
+                llm=self.llm
+            )
         elif self.engine_type == "enhanced":
             self.query_engine = create_enhanced_query_engine(
-                index, collection_name=self.collection_name, top_k=5
+                index,
+                collection_name=self.collection_name, 
+                top_k=5,
+                llm=self.llm
             )
         else:
             self.query_engine = create_standard_query_engine(
-                index, collection_name=self.collection_name, top_k=5
+                index,
+                collection_name=self.collection_name,
+                top_k=5,
+                llm=self.llm
             )
         
         self.query_engine = patch_query_engine_with_tracing(self.query_engine)

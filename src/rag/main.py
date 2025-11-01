@@ -10,7 +10,7 @@ from src.observability.token_cost import calculate_cost, get_token_usage
 from ..observability.langfuse_config import update_trace_metadata, update_span_metadata, update_current_generation
 from .client import setup_rag_client, setup_qdrant_client
 from .models import configure_global_settings, setup_llm, setup_embedding_model
-from .query_engine import create_simple_query_engine, create_query_engine, create_standard_query_engine, create_enhanced_query_engine, enhanced_query_engine
+from .query_engine import create_simple_query_engine,create_standard_query_engine, create_enhanced_query_engine
 from .retriever import create_custom_retriever
 
 
@@ -364,12 +364,17 @@ Examples:
             configure_global_settings()
             _, index = setup_rag_client(args.collection_name)
             if args.engine_type == "simple":
-                query_engine = create_simple_query_engine(index, top_k=args.top_k)
+                query_engine = create_simple_query_engine(
+                    index,
+                    llm=None,
+                    top_k=args.top_k
+                )
             elif args.engine_type == "enhanced":
                 query_engine = create_enhanced_query_engine(
                     index, 
                     collection_name=args.collection_name,
                     top_k=args.top_k, 
+                    llm=None,
                     llm_model=args.model,
                     score_threshold=args.threshold,
                     verbose=args.verbose
@@ -379,6 +384,7 @@ Examples:
                     index,
                     collection_name=args.collection_name,
                     top_k=args.top_k,
+                    llm=None,
                     llm_model=args.model,
                     score_threshold=args.threshold
                 )
