@@ -101,7 +101,7 @@ def calculate_f1_score(true_labels: List[str], predicted_labels: List[str], aver
     true_normalized = [normalize_verdict(label) for label in true_labels]
     pred_normalized = [normalize_verdict(label) for label in predicted_labels]
     
-    return f1_score(true_normalized, pred_normalized, average=average)
+    return f1_score(true_normalized, pred_normalized, average=average, zero_division=0)
 
 @observe()
 def evaluate_predictions(
@@ -117,9 +117,9 @@ def evaluate_predictions(
     
     # Basic metrics
     accuracy = accuracy_score(true_normalized, pred_normalized)
-    f1_weighted = f1_score(true_normalized, pred_normalized, average='weighted')
-    f1_macro = f1_score(true_normalized, pred_normalized, average='macro')
-    
+    f1_weighted = f1_score(true_normalized, pred_normalized, average='weighted', zero_division=0)
+    f1_macro = f1_score(true_normalized, pred_normalized, average='macro', zero_division=0)
+
     results = {
         'accuracy': accuracy,
         'f1_weighted': f1_weighted,
@@ -132,7 +132,8 @@ def evaluate_predictions(
         report = classification_report(
             true_normalized, 
             pred_normalized, 
-            output_dict=True
+            output_dict=True,
+            zero_division=0
         )
         results['classification_report'] = report
         
