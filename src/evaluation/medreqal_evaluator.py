@@ -1,5 +1,6 @@
 """MedREQAL evaluator - OPTIMIZED VERSION (loads LLM once)."""
 
+import dspy
 from langfuse import observe
 from src.observability.langfuse_config import update_current_generation, update_trace_metadata, update_span_metadata
 
@@ -9,6 +10,7 @@ import time
 from tqdm import tqdm
 
 from src.observability.token_cost import calculate_cost, get_token_usage
+from src.dspy_modules import MedicalRAGModule, ZeroShotQAModule
 
 from ..rag.models import setup_llm
 from ..rag.client import setup_rag_client
@@ -61,8 +63,39 @@ class MedREQALEvaluator:
             print(" LLM loaded successfully and ready!")
             print(f"{'='*70}\n")
         
+        self._setup_dspy()
         print(f"[Evaluator.__init__] Initialization complete")
     
+    def _setup_dspy(self):
+        """Setup DSPy with the configured LLM."""
+        print(f"[DSPy] Configuring with {self.llm_model}...")
+        
+        # Configure DSPy LM based on provider
+        if self.use_ollama:
+            # Ollama
+            dspy_lm = dspy.LM(
+                f'ollama_chat/{self.llm_model}',
+                api_base='http://localhost:11434',
+                max_tokens=500
+            )
+        elif self.use_huggingface:
+            print(" DSPy não suporta HuggingFace local diretamente")
+            print(" Usando modo compatível (sem DSPy para HF)")
+            self.dspy_module = None
+            return
+        else:
+            dspy_lm = dspy.LM(f'openai/{self.llm_model}', max_tokens=500)
+
+        dspy.configure(lm=dspy_lm)
+
+        if self.mode == "rag":
+            self.dspy_module = MedicalRAGModule()
+        else:
+            self.dspy_module = ZeroShotQAModule()
+        
+        print(f"[DSPy] Configured successfully\n")
+
+
     def setup_rag_system(self):
         """Setup RAG system for evaluation."""
         print(f"Setting up RAG system with model={self.llm_model}, ollama={self.use_ollama}, hf={self.use_huggingface}...")
@@ -174,15 +207,22 @@ Verdict: YES (beneficial), NO (harmful), or MAYBE (insufficient).
     
     @observe()
     def zero_shot_query(self, prompt: str, question_index: int) -> Tuple[str, str]:
-        """Perform zero-shot query using pre-initialized LLM (OPTIMIZED)."""
+        """Perform zero-shot query using DSPy (if available) or fallback."""
         
         if self.llm is None:
             raise ValueError("LLM not initialized for zero-shot mode")
         
         try:
-            response = self.llm.complete(prompt)
-            answer = response.text if hasattr(response, "text") else str(response)
-            verdict = extract_verdict_from_response(answer)
+            if self.dspy_module is not None:
+                question = prompt.split("Medical Question:")[-1].split("\n")[0].strip()
+                
+                prediction = self.dspy_module(question=question)
+                answer = prediction.reasoning
+                verdict = prediction.verdict
+            else:
+                response = self.llm.complete(prompt)
+                answer = response.text if hasattr(response, "text") else str(response)
+                verdict = extract_verdict_from_response(answer)
             
             token_usage = get_token_usage(prompt, answer, self.llm_model)
             costs = calculate_cost(
@@ -210,15 +250,22 @@ Verdict: YES (beneficial), NO (harmful), or MAYBE (insufficient).
     
     @observe()
     def zero_shot_query_pubmedqa(self, prompt: str, question_index: int) -> Tuple[str, str]:
-        """Zero-shot query for PubMedQA (uses different verdict extraction)."""
+        """Zero-shot query for PubMedQA using DSPy (if available)."""
         
         if self.llm is None:
             raise ValueError("LLM not initialized for zero-shot mode")
         
         try:
-            response = self.llm.complete(prompt)
-            answer = response.text if hasattr(response, "text") else str(response)
-            verdict = extract_pubmedqa_verdict_from_response(answer)
+            if self.dspy_module is not None:
+                question = prompt.split("Medical Question:")[-1].split("\n")[0].strip()
+
+                prediction = self.dspy_module(question=question)
+                answer = prediction.reasoning
+                verdict = prediction.verdict
+            else:
+                response = self.llm.complete(prompt)
+                answer = response.text if hasattr(response, "text") else str(response)
+                verdict = extract_pubmedqa_verdict_from_response(answer)
             
             token_usage = get_token_usage(prompt, answer, self.llm_model)
             costs = calculate_cost(
@@ -277,7 +324,7 @@ Verdict: YES (beneficial), NO (harmful), or MAYBE (insufficient).
     
     @observe()
     def evaluate_single_pubmedqa_question(self, row: pd.Series, index: int) -> Dict[str, Any]:
-        """Evaluate single PubMedQA question (OPTIMIZED)."""
+        """Evaluate single PubMedQA question with DSPy."""
         if self.mode == "zero_shot":
             prompt = f"Medical Question: {row['question']}\nVerdict: YES, NO, or MAYBE."
             answer, verdict = self.zero_shot_query_pubmedqa(prompt, index)
@@ -296,7 +343,28 @@ Verdict: YES (beneficial), NO (harmful), or MAYBE (insufficient).
         else:
             formatted_question = self.format_pubmedqa_question_with_context(row)
             rag_response = self.query_rag_system(formatted_question)
-            rag_verdict = extract_pubmedqa_verdict_from_response(rag_response)
+
+            contexts = []
+            if hasattr(self.query_engine, '_retriever'):
+                try:
+                    response_obj = self.query_engine.query(formatted_question)
+                    if hasattr(response_obj, 'source_nodes'):
+                        for node in response_obj.source_nodes[:5]:
+                            contexts.append(node.node.get_content())
+                except Exception as e:
+                    print(f"Error extracting contexts: {e}")
+                    pass
+            
+            # 3. ⭐ USA DSPY para gerar resposta estruturada (se disponível)
+            if self.dspy_module is not None and contexts:
+                prediction = self.dspy_module(
+                    question=row['question'],
+                    contexts=contexts
+                )
+                rag_verdict = prediction.verdict
+                rag_response = prediction.reasoning
+            else:
+                rag_verdict = extract_pubmedqa_verdict_from_response(rag_response)
             
             return {
                 'index': index,
