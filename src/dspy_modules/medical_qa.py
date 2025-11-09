@@ -73,5 +73,4 @@ class MedicalRAGModule(dspy.Module):
                 verdict='maybe',
                 reasoning=f'Error processing contexts: {str(e)}'
             )
-
-            
+  

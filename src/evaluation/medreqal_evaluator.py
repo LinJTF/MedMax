@@ -355,7 +355,7 @@ Verdict: YES (beneficial), NO (harmful), or MAYBE (insufficient).
                     print(f"Error extracting contexts: {e}")
                     pass
             
-            # 3. ⭐ USA DSPY para gerar resposta estruturada (se disponível)
+            # Using DSPy module to extract verdict if available
             if self.dspy_module is not None and contexts:
                 prediction = self.dspy_module(
                     question=row['question'],
