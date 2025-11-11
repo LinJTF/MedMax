@@ -2,10 +2,13 @@
 
 import os
 import time
+import torch
 from typing import List, Tuple
 from openai import OpenAI
 from dotenv import load_dotenv
 from tqdm import tqdm
+
+from sentence_transformers import SentenceTransformer
 
 load_dotenv()
 
@@ -116,3 +119,100 @@ def generate_openai_embeddings(texts: List[str], model: str = "text-embedding-3-
     
     print(f"Generated {len(all_embeddings)} embeddings total")
     return all_embeddings
+
+
+def generate_huggingface_embeddings(
+    texts: List[str],
+    model: str = "sentence-transformers/all-MiniLM-L6-v2",
+    batch_size: int = 32,
+    device: str = "auto"
+) -> List[List[float]]:
+    """
+    Generate embeddings using HuggingFace sentence-transformers.
+    
+    Args:
+        texts: List of texts to embed
+        model: HuggingFace model name (default: all-MiniLM-L6-v2)
+        batch_size: Number of texts to process at once
+        device: Device to use ("cuda", "cpu", or "auto")
+    
+    Returns:
+        List of embedding vectors
+    """
+    
+    # Detect device
+    if device == "auto":
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    
+    print(f"[HuggingFace Embeddings] Loading model: {model}")
+    print(f"[HuggingFace Embeddings] Using device: {device}")
+    
+    if device == "cuda":
+        print(f"[HuggingFace Embeddings] GPU: {torch.cuda.get_device_name(0)}")
+    
+    # Load model
+    embedding_model = SentenceTransformer(model, device=device)
+    
+    print(f"Processing {len(texts)} texts for embedding generation...")
+    print(f"Batch size: {batch_size}")
+    
+    # Generate embeddings in batches with progress bar
+    all_embeddings = []
+    
+    with tqdm(total=len(texts), desc="Generating embeddings", unit="text") as pbar:
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            
+            # Generate embeddings for batch
+            batch_embeddings = embedding_model.encode(
+                batch,
+                show_progress_bar=False,
+                convert_to_numpy=True,
+                normalize_embeddings=True  # Normalize for cosine similarity
+            )
+            
+            # Convert to list of lists
+            all_embeddings.extend(batch_embeddings.tolist())
+            
+            # Update progress bar
+            pbar.update(len(batch))
+            pbar.set_postfix({
+                'embeddings': len(all_embeddings),
+                'batch': f"{i // batch_size + 1}/{(len(texts) + batch_size - 1) // batch_size}"
+            })
+    
+    print(f"Generated {len(all_embeddings)} embeddings total")
+    print(f"Embedding dimension: {len(all_embeddings[0])}")
+    
+    return all_embeddings
+
+
+def generate_embeddings(
+    texts: List[str],
+    model: str = "text-embedding-3-small",
+    use_huggingface: bool = False,
+    batch_size: int = 32,
+    device: str = "auto"
+) -> List[List[float]]:
+    """
+    Generate embeddings using OpenAI or HuggingFace.
+    
+    Args:
+        texts: List of texts to embed
+        model: Model name (OpenAI or HuggingFace)
+        use_huggingface: If True, use HuggingFace sentence-transformers
+        batch_size: Batch size for HuggingFace processing
+        device: Device for HuggingFace ("cuda", "cpu", or "auto")
+    
+    Returns:
+        List of embedding vectors
+    """
+    if use_huggingface:
+        return generate_huggingface_embeddings(
+            texts=texts,
+            model=model,
+            batch_size=batch_size,
+            device=device
+        )
+    else:
+        return generate_openai_embeddings(texts=texts, model=model)
